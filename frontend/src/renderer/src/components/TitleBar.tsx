@@ -21,7 +21,10 @@ const TitleBar = () => {
   };
 
   return (
-    <div className="h-8 bg-theme-surface/90 backdrop-blur-md flex items-center justify-between select-none border-b border-theme-border sticky top-0 z-[9999] title-bar-drag">
+    <div
+      onDoubleClick={handleMaximize}
+      className="h-8 bg-theme-surface/90 backdrop-blur-md flex items-center justify-between select-none border-b border-theme-border sticky top-0 z-[9999] title-bar-drag"
+    >
       <div className="flex items-center px-3 gap-2 pointer-events-none">
         <AeroLogo size="xs" animated={false} />
         <span className="text-[10px] font-bold text-theme-textSecondary uppercase tracking-widest opacity-80">

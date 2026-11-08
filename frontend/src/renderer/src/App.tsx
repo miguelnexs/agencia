@@ -182,16 +182,20 @@ const App = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="flex flex-col h-screen overflow-hidden"
           >
-            <Dashboard
-              token={token}
-              role={role}
-              permissions={permissions}
-              username={username}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onSignOut={handleSignOut}
-            />
+            <TitleBar />
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
+              <Dashboard
+                token={token}
+                role={role}
+                permissions={permissions}
+                username={username}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onSignOut={handleSignOut}
+              />
+            </div>
           </motion.div>
         ) : (
           <motion.div

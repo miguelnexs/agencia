@@ -1052,7 +1052,7 @@ const Dashboard = ({
   };
 
   return (
-    <div className="min-h-screen bg-theme-background text-theme-text flex relative overflow-hidden transition-colors duration-300">
+    <div className="min-h-full bg-theme-background text-theme-text flex relative overflow-hidden transition-colors duration-300">
       {/* SUBTLE BACKGROUND AIRPLANE & FLIGHT ROUTES WATERMARK */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
         <svg
