@@ -27,7 +27,7 @@ def send_meta_whatsapp_message(phone_number_id, access_token, to_phone, message_
     """Envía un mensaje de texto a través de WhatsApp Cloud API (Meta)."""
     if not phone_number_id or not access_token:
         logger.warning("WhatsApp API no configurada (falta phone_number_id o access_token).")
-        return None
+        return False, "WhatsApp API no configurada (falta Phone ID o Token)."
 
     # Normalizar número (quitar signos +, espacios o guiones)
     clean_to = re.sub(r'\D', '', to_phone)
@@ -51,14 +51,19 @@ def send_meta_whatsapp_message(phone_number_id, access_token, to_phone, message_
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            return data
+            return True, data
     except urllib.error.HTTPError as e:
         err_msg = e.read().decode('utf-8')
         logger.error(f"Error enviando mensaje WhatsApp a {clean_to}: {err_msg}")
-        return None
+        try:
+            parsed = json.loads(err_msg)
+            error_detail = parsed.get('error', {}).get('message', err_msg)
+        except Exception:
+            error_detail = err_msg
+        return False, error_detail
     except Exception as e:
         logger.error(f"Excepción enviando mensaje WhatsApp: {e}")
-        return None
+        return False, str(e)
 
 
 def generate_auto_reply(incoming_text, sender_name, config):
@@ -184,7 +189,7 @@ class WhatsAppWebhookView(View):
                         reply_text = generate_auto_reply(text_content, sender_name, config)
                         
                         # Enviar a través de Meta API si está configurada
-                        send_res = send_meta_whatsapp_message(
+                        send_ok, send_res = send_meta_whatsapp_message(
                             phone_number_id=config.phone_number_id,
                             access_token=config.access_token,
                             to_phone=from_phone,
@@ -247,7 +252,8 @@ class WhatsAppMessagesDetailView(APIView):
             return Response({'detail': 'El mensaje no puede estar vacío'}, status=status.HTTP_400_BAD_REQUEST)
 
         config = get_whatsapp_config()
-        send_meta_whatsapp_message(
+        contact_name = request.data.get('sender_name') or ''
+        sent_ok, meta_res = send_meta_whatsapp_message(
             phone_number_id=config.phone_number_id,
             access_token=config.access_token,
             to_phone=phone,
@@ -256,7 +262,7 @@ class WhatsAppMessagesDetailView(APIView):
 
         msg = WhatsAppMessage.objects.create(
             sender_phone=phone,
-            sender_name=request.user.first_name or request.user.username,
+            sender_name=contact_name or request.user.first_name or request.user.username,
             message_text=text,
             direction='outbound',
             is_auto_reply=False
@@ -268,6 +274,8 @@ class WhatsAppMessagesDetailView(APIView):
             'direction': msg.direction,
             'sender_name': msg.sender_name,
             'is_auto_reply': False,
+            'meta_sent': sent_ok,
+            'meta_detail': meta_res if not sent_ok else 'Enviado correctamente a través de Meta',
             'created_at': msg.created_at.strftime('%H:%M - %d/%m/%Y'),
         }, status=status.HTTP_201_CREATED)
 

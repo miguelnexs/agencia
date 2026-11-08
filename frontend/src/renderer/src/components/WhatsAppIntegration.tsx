@@ -7,6 +7,8 @@ interface Message {
   direction: 'inbound' | 'outbound';
   sender_name?: string;
   is_auto_reply?: boolean;
+  meta_sent?: boolean;
+  meta_detail?: string;
   created_at: string;
 }
 
@@ -23,6 +25,14 @@ interface WhatsAppIntegrationProps {
   apiBase: string;
 }
 
+const QUICK_TEMPLATES = [
+  { label: '👋 Saludo Inicial', text: '¡Hola! Te damos la bienvenida a AeroAgencia ✈️. ¿En qué podemos ayudarte el día de hoy?' },
+  { label: '🎫 Consulta de Reserva', text: 'Por favor facilítanos el código de tu reserva (ejemplo: AEROA1) para brindarte los detalles de inmediato.' },
+  { label: '📄 Solicitud de Documentos', text: 'Para completar el registro de tu viaje, requerimos una foto legible de tu cédula o pasaporte.' },
+  { label: '👨‍💼 Atención Asesor', text: 'Un asesor comercial especializado está revisando tu caso y te responderá en unos minutos.' },
+  { label: '💳 Confirmación Pago', text: 'Hemos verificado el pago de tu reserva. En breve recibirás tu voucher y confirmación.' },
+];
+
 export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token, apiBase }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'config' | 'test'>('chat');
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -31,6 +41,14 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  // Modal Nuevo Chat
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState('+57');
+  const [newChatName, setNewChatName] = useState('');
+  const [newChatMessage, setNewChatMessage] = useState('');
+  const [newChatSending, setNewChatSending] = useState(false);
 
   // Form Config
   const [config, setConfig] = useState({
@@ -45,9 +63,9 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Simulator Test
-  const [simPhone, setSimPhone] = useState('573143291149');
-  const [simName, setSimName] = useState('Pasajero Demo');
-  const [simText, setSimText] = useState('GRXEB3');
+  const [simPhone, setSimPhone] = useState('573245362112');
+  const [simName, setSimName] = useState('Cliente Agencia');
+  const [simText, setSimText] = useState('AEROA1');
   const [simLoading, setSimLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -127,28 +145,79 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Enviar mensaje manual
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageInput.trim() || !selectedPhone || sending) return;
+  // Enviar mensaje manual en el chat actual
+  const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault();
+    const textToSend = customText || messageInput;
+    if (!textToSend.trim() || !selectedPhone || sending) return;
 
     setSending(true);
+    setStatusNotice(null);
+
     try {
       const res = await fetch(`${apiBase}/users/api/whatsapp/messages/${selectedPhone}/`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({ message: messageInput }),
+        body: JSON.stringify({ message: textToSend }),
       });
       if (res.ok) {
         const newMsg = await res.json();
         setMessages((prev) => [...prev, newMsg]);
-        setMessageInput('');
+        if (!customText) setMessageInput('');
         loadConversations();
+        if (newMsg.meta_sent) {
+          setStatusNotice({ type: 'success', text: '✅ Mensaje entregado a WhatsApp con éxito.' });
+        } else if (newMsg.meta_detail) {
+          setStatusNotice({ type: 'info', text: `ℹ️ Guardado en el chat. Nota de Meta: ${newMsg.meta_detail}` });
+        }
+      } else {
+        setStatusNotice({ type: 'error', text: '❌ No se pudo enviar el mensaje.' });
       }
     } catch (e) {
       console.error(e);
+      setStatusNotice({ type: 'error', text: '❌ Error de conexión al enviar mensaje.' });
     } finally {
       setSending(false);
+      setTimeout(() => setStatusNotice(null), 5000);
+    }
+  };
+
+  // Iniciar nuevo chat con cualquier número
+  const handleStartNewChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPhone = newChatPhone.replace(/\D/g, '');
+    if (!cleanPhone || !newChatMessage.trim() || newChatSending) return;
+
+    setNewChatSending(true);
+    try {
+      const res = await fetch(`${apiBase}/users/api/whatsapp/messages/${cleanPhone}/`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          message: newChatMessage.trim(),
+          sender_name: newChatName.trim() || cleanPhone,
+        }),
+      });
+
+      if (res.ok) {
+        const newMsg = await res.json();
+        await loadConversations();
+        setSelectedPhone(cleanPhone);
+        setMessages([newMsg]);
+        setShowNewChatModal(false);
+        setNewChatPhone('+57');
+        setNewChatName('');
+        setNewChatMessage('');
+        setStatusNotice({ type: 'success', text: `✅ Conversación iniciada con +${cleanPhone}` });
+      } else {
+        setStatusNotice({ type: 'error', text: '❌ Error al crear la conversación' });
+      }
+    } catch (err) {
+      console.error(err);
+      setStatusNotice({ type: 'error', text: '❌ Error de red al iniciar nuevo chat' });
+    } finally {
+      setNewChatSending(false);
+      setTimeout(() => setStatusNotice(null), 5000);
     }
   };
 
@@ -188,7 +257,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
       });
       if (res.ok) {
         await loadConversations();
-        setSelectedPhone(simPhone);
+        setSelectedPhone(simPhone.replace(/\D/g, ''));
         setActiveTab('chat');
       }
     } catch (e) {
@@ -200,22 +269,25 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
 
   return (
     <div className="space-y-6">
-      {/* Encabezado y Selector de Tabs */}
+      {/* Encabezado Principal */}
       <div className="bg-theme-surface border border-theme-border rounded-3xl p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center font-bold text-xl">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center font-bold text-2xl shadow-sm">
               💬
             </div>
             <div>
-              <h2 className="text-xl font-black text-theme-text flex items-center gap-2">
-                WhatsApp Business Suite
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 uppercase tracking-widest">
-                  API Oficial & Bot
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-theme-text">WhatsApp Business Suite</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Oficial Meta API
                 </span>
-              </h2>
-              <p className="text-xs text-theme-textSecondary mt-0.5">
-                Central de mensajería con auto-respuestas inteligentes de reservas y control de clientes
+              </div>
+              <p className="text-xs text-theme-textSecondary mt-0.5 flex items-center gap-2">
+                <span>Número Conectado: <strong className="text-emerald-400 font-mono">+57 324 5362112</strong></span>
+                <span>•</span>
+                <span>Respuesta Automática de Reservas Activa</span>
               </p>
             </div>
           </div>
@@ -240,7 +312,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                 : 'text-theme-textSecondary hover:text-theme-text'
             }`}
           >
-            Credenciales API
+            Ajustes & Bot
           </button>
           <button
             onClick={() => setActiveTab('test')}
@@ -250,29 +322,52 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                 : 'text-theme-textSecondary hover:text-theme-text'
             }`}
           >
-            🧪 Simulador / Pruebas
+            🧪 Simulador
           </button>
         </div>
       </div>
 
+      {/* Notificación de Estado */}
+      <AnimatePresence>
+        {statusNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`px-4 py-3 rounded-2xl text-xs font-bold shadow-md flex items-center justify-between ${
+              statusNotice.type === 'success'
+                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                : statusNotice.type === 'error'
+                ? 'bg-rose-500/15 border border-rose-500/30 text-rose-300'
+                : 'bg-blue-500/15 border border-blue-500/30 text-blue-300'
+            }`}
+          >
+            <span>{statusNotice.text}</span>
+            <button onClick={() => setStatusNotice(null)} className="opacity-60 hover:opacity-100">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* TAB 1: CHAT EN VIVO */}
       {activeTab === 'chat' && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-[640px]">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-[660px]">
           {/* Lista de Chats (4 cols) */}
           <div className="md:col-span-4 bg-theme-surface border border-theme-border rounded-3xl flex flex-col overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-theme-border bg-theme-background/40">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-theme-textMuted block">
-                Clientes & Conversaciones
-              </span>
-              <div className="text-xs font-bold text-theme-text mt-1 flex items-center justify-between">
-                <span>{conversations.length} Contacto(s)</span>
-                <button
-                  onClick={loadConversations}
-                  className="text-[11px] text-emerald-500 hover:underline"
-                >
-                  ↻ Actualizar
-                </button>
+            <div className="p-4 border-b border-theme-border bg-theme-background/40 flex items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-theme-textMuted block">
+                  Clientes & Contactos
+                </span>
+                <span className="text-xs font-black text-theme-text">
+                  {conversations.length} Conversación(es)
+                </span>
               </div>
+              <button
+                onClick={() => setShowNewChatModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs shadow-sm flex items-center gap-1 transition"
+              >
+                <span>+</span> Nuevo Chat
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-theme-border/50">
@@ -281,10 +376,10 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                   <div className="text-3xl mb-2">📭</div>
                   No hay chats todavía.
                   <button
-                    onClick={() => setActiveTab('test')}
+                    onClick={() => setShowNewChatModal(true)}
                     className="block mx-auto mt-3 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-500 font-bold hover:bg-emerald-500/20"
                   >
-                    Abrir simulador de prueba
+                    + Enviar primer mensaje
                   </button>
                 </div>
               ) : (
@@ -306,7 +401,9 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                         <span className="font-extrabold text-sm text-theme-text truncate block">
                           {c.name}
                         </span>
-                        <span className="text-[10px] text-theme-textMuted">{c.last_time.split(' ')[1]}</span>
+                        <span className="text-[10px] text-theme-textMuted">
+                          {c.last_time.includes(' ') ? c.last_time.split(' ')[1] : c.last_time}
+                        </span>
                       </div>
                       <span className="text-xs text-theme-textMuted block font-mono">+{c.phone}</span>
                       <p className="text-xs text-theme-textSecondary truncate mt-1">
@@ -332,13 +429,15 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                     </div>
                     <div>
                       <h3 className="font-extrabold text-sm text-theme-text">
-                        {conversations.find((c) => c.phone === selectedPhone)?.name || selectedPhone}
+                        {conversations.find((c) => c.phone === selectedPhone)?.name || `Cliente +${selectedPhone}`}
                       </h3>
-                      <span className="text-[11px] font-mono text-emerald-500">+{selectedPhone}</span>
+                      <span className="text-[11px] font-mono text-emerald-400">+{selectedPhone}</span>
                     </div>
                   </div>
-                  <div className="text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-bold">
-                    Auto-Respuesta Activa ⚡
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+                      🤖 Bot Activo
+                    </span>
                   </div>
                 </div>
 
@@ -365,16 +464,17 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                           >
                             {m.is_auto_reply && (
                               <div className="text-[9px] font-bold uppercase tracking-wider text-teal-200 mb-1 flex items-center gap-1">
-                                <span>🤖 Auto-Respuesta Sistema</span>
+                                <span>🤖 Auto-Respuesta del Sistema</span>
                               </div>
                             )}
                             <div>{m.text}</div>
                             <div
-                              className={`text-[9px] mt-1 text-right ${
+                              className={`text-[9px] mt-1.5 flex items-center justify-end gap-1 ${
                                 isOut ? 'text-white/70' : 'text-theme-textMuted'
                               }`}
                             >
-                              {m.created_at}
+                              <span>{m.created_at}</span>
+                              {isOut && <span title="Enviado">✓✓</span>}
                             </div>
                           </div>
                         </div>
@@ -384,21 +484,43 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input de envío */}
-                <form onSubmit={handleSendMessage} className="p-3.5 border-t border-theme-border bg-theme-background/60 flex items-center gap-2">
+                {/* Respuestas Rápidas / Plantillas */}
+                <div className="px-3.5 py-2 border-t border-theme-border bg-theme-background/40 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  <span className="text-[10px] font-extrabold uppercase text-theme-textMuted shrink-0">
+                    Plantillas:
+                  </span>
+                  {QUICK_TEMPLATES.map((tmpl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSendMessage(undefined, tmpl.text)}
+                      className="px-2.5 py-1 rounded-xl bg-theme-surface border border-theme-border text-[11px] font-bold text-theme-textSecondary hover:text-theme-text hover:border-emerald-500/50 hover:bg-emerald-500/10 transition shrink-0 whitespace-nowrap"
+                    >
+                      {tmpl.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input de envío de mensajes en el Dashboard */}
+                <form onSubmit={(e) => handleSendMessage(e)} className="p-3.5 border-t border-theme-border bg-theme-background/60 flex items-center gap-2">
                   <input
                     type="text"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
-                    placeholder="Escribe un mensaje de respuesta a través de WhatsApp..."
+                    placeholder="Escribe tu mensaje para responder por WhatsApp..."
                     className="flex-1 px-4 py-2.5 rounded-xl border border-theme-border bg-theme-surface text-theme-text text-xs focus:outline-none focus:border-emerald-500"
                   />
                   <button
                     type="submit"
                     disabled={sending || !messageInput.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/20 disabled:opacity-50 transition"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/20 disabled:opacity-50 transition flex items-center gap-1.5"
                   >
-                    {sending ? 'Enviando...' : 'Enviar ➤'}
+                    {sending ? 'Enviando...' : (
+                      <>
+                        <span>Enviar</span>
+                        <span>➤</span>
+                      </>
+                    )}
                   </button>
                 </form>
               </>
@@ -406,9 +528,15 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-theme-textSecondary">
                 <div className="text-4xl mb-3">💬</div>
                 <div className="font-extrabold text-theme-text text-sm">Selecciona una conversación</div>
-                <p className="text-xs text-theme-textMuted mt-1">
-                  Elige un cliente de la lista de la izquierda o envía un mensaje de prueba con el simulador.
+                <p className="text-xs text-theme-textMuted mt-1 mb-4">
+                  Elige un cliente de la lista de la izquierda o inicia un nuevo chat directamente con un número.
                 </p>
+                <button
+                  onClick={() => setShowNewChatModal(true)}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 shadow-md shadow-emerald-500/20 transition"
+                >
+                  + Iniciar Nueva Conversación
+                </button>
               </div>
             )}
           </div>
@@ -419,33 +547,38 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
       {activeTab === 'config' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <form onSubmit={handleSaveConfig} className="lg:col-span-8 bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-sm space-y-5">
-            <h3 className="text-base font-black text-theme-text flex items-center gap-2">
-              ⚙️ Conexión con Meta / WhatsApp Cloud API
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-theme-text flex items-center gap-2">
+                ⚙️ Ajustes del Bot y Conexión Meta
+              </h3>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400">
+                Línea: +57 324 5362112
+              </span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                  Identificador de número de teléfono (Phone Number ID)
+                  Phone Number ID (Asignado a +57 324 5362112)
                 </label>
                 <input
                   type="text"
                   value={config.phone_number_id}
                   onChange={(e) => setConfig({ ...config, phone_number_id: e.target.value })}
-                  placeholder="Ej: 104582947182930"
+                  placeholder="1391379807400528"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs font-mono"
                 />
               </div>
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                  ID de cuenta de WhatsApp Business (WABA ID)
+                  WABA ID (Cuenta de WhatsApp Business)
                 </label>
                 <input
                   type="text"
                   value={config.whatsapp_business_account_id}
                   onChange={(e) => setConfig({ ...config, whatsapp_business_account_id: e.target.value })}
-                  placeholder="Ej: 981726354182910"
+                  placeholder="1490898346242932"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs font-mono"
                 />
               </div>
@@ -453,13 +586,13 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
 
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                Token de acceso permanente o temporal (System User Access Token)
+                Token de acceso de Usuario del Sistema (Permanente)
               </label>
               <textarea
                 rows={2}
                 value={config.access_token}
                 onChange={(e) => setConfig({ ...config, access_token: e.target.value })}
-                placeholder="EAAG..."
+                placeholder="EAAQyFdmt9nYBS..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs font-mono"
               />
             </div>
@@ -467,7 +600,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-theme-border">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                  Token de verificación de Webhook (Webhook Verify Token)
+                  Token de verificación de Webhook
                 </label>
                 <input
                   type="text"
@@ -493,7 +626,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
 
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                Mensaje de bienvenida automático
+                Mensaje de bienvenida automático del Bot
               </label>
               <textarea
                 rows={2}
@@ -526,25 +659,28 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
             </div>
           </form>
 
-          {/* Instrucciones de URL para Meta (4 cols) */}
+          {/* Tarjeta de Información Oficial Meta (4 cols) */}
           <div className="lg:col-span-4 bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-sm space-y-4 text-xs">
             <h4 className="font-black text-theme-text flex items-center gap-2">
-              🌐 Webhook URL para Meta
+              🌐 Webhook HTTPS Oficial
             </h4>
             <p className="text-theme-textSecondary leading-relaxed">
-              En tu portal de Meta Developer, en la sección <strong>WhatsApp → Configuración</strong>, pega esta URL en el Webhook:
+              Callback URL activa en el servidor:
             </p>
             <div className="p-3 rounded-xl bg-theme-background border border-theme-border font-mono text-[11px] text-teal-400 break-all select-all">
-              https://tu-dominio.com/users/api/whatsapp/webhook/
+              https://globetrek.cloud/users/api/whatsapp/webhook/
             </div>
             <p className="text-theme-textSecondary leading-relaxed">
-              <strong>Token de verificación:</strong>
+              <strong>Verify Token:</strong>
             </p>
             <div className="p-3 rounded-xl bg-theme-background border border-theme-border font-mono text-[11px] text-teal-400 break-all select-all">
               {config.webhook_verify_token}
             </div>
-            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] leading-relaxed">
-              💡 <em>Para pruebas locales</em> puedes usar <strong>ngrok</strong> (ej: <code>ngrok http 8000</code>) y pegar el enlace HTTPS público que te genere en el webhook de Meta.
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] leading-relaxed space-y-1">
+              <div className="font-bold flex items-center gap-1">
+                <span>✓</span> Certificado SSL Let's Encrypt Activo
+              </div>
+              <div>Cualquier mensaje enviado a tu número oficial <strong>+57 324 5362112</strong> llegará directamente a esta bandeja.</div>
             </div>
           </div>
         </div>
@@ -555,17 +691,17 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
         <div className="bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-sm max-w-2xl mx-auto space-y-5">
           <div>
             <h3 className="text-base font-black text-theme-text flex items-center gap-2">
-              🧪 Simulador Interactivo de WhatsApp
+              🧪 Simulador de Recepción de Mensajes
             </h3>
             <p className="text-xs text-theme-textSecondary mt-1">
-              Prueba la inteligencia de auto-respuesta del bot de inmediato. Escribe el código de una reserva (por ejemplo: <strong className="text-emerald-400">GRXEB3</strong>), o escribe <strong className="text-emerald-400">HOLA</strong> o <strong className="text-emerald-400">ASESOR</strong>.
+              Prueba la inteligencia del bot sin gastar mensajes de Meta. Simula que un cliente te escribe desde su teléfono.
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                Número de teléfono simulado
+                Teléfono del cliente remitente
               </label>
               <input
                 type="text"
@@ -577,7 +713,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
 
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                Nombre del pasajero / cliente
+                Nombre del cliente
               </label>
               <input
                 type="text"
@@ -589,22 +725,22 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
 
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
-                Mensaje enviado por el usuario
+                Mensaje que envía el cliente
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={simText}
                   onChange={(e) => setSimText(e.target.value)}
-                  placeholder="Ej: GRXEB3 o Hola"
+                  placeholder="Ej: AEROA1 o Hola"
                   className="flex-1 px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs"
                 />
                 <button
                   type="button"
-                  onClick={() => setSimText('GRXEB3')}
+                  onClick={() => setSimText('AEROA1')}
                   className="px-3 py-2 rounded-xl border border-teal-500/30 text-teal-400 text-xs font-bold hover:bg-teal-500/10"
                 >
-                  Probar GRXEB3
+                  Probar AEROA1
                 </button>
               </div>
             </div>
@@ -614,14 +750,102 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
               disabled={simLoading || !simText.trim()}
               className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
             >
-              {simLoading ? 'Simulando llegada de mensaje...' : 'Simular Recepción de Mensaje y Ver Respuesta ➤'}
+              {simLoading ? 'Simulando mensaje...' : 'Simular Recepción de Mensaje y Abrir Chat ➤'}
             </button>
           </div>
         </div>
       )}
+
+      {/* MODAL NUEVO CHAT DIRECTO */}
+      <AnimatePresence>
+        {showNewChatModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-theme-surface border border-theme-border rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-theme-border pb-3">
+                <h3 className="font-black text-base text-theme-text flex items-center gap-2">
+                  <span>✉️</span> Iniciar Conversación WhatsApp
+                </h3>
+                <button
+                  onClick={() => setShowNewChatModal(false)}
+                  className="text-theme-textMuted hover:text-theme-text text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleStartNewChat} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
+                    Número de teléfono WhatsApp (con código de país)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newChatPhone}
+                    onChange={(e) => setNewChatPhone(e.target.value)}
+                    placeholder="+573001234567"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs font-mono"
+                  />
+                  <span className="text-[10px] text-theme-textMuted mt-0.5 block">
+                    Ejemplo para Colombia: +57 324 5362112
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
+                    Nombre del Contacto (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newChatName}
+                    onChange={(e) => setNewChatName(e.target.value)}
+                    placeholder="Ej: Laura Gómez"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
+                    Mensaje Inicial
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={newChatMessage}
+                    onChange={(e) => setNewChatMessage(e.target.value)}
+                    placeholder="Escribe el mensaje que se enviará al cliente..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewChatModal(false)}
+                    className="px-4 py-2 rounded-xl border border-theme-border text-theme-textSecondary hover:text-theme-text text-xs font-bold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={newChatSending || !newChatMessage.trim()}
+                    className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50 transition"
+                  >
+                    {newChatSending ? 'Enviando...' : 'Enviar y Crear Chat ➤'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 export default WhatsAppIntegration;
-
