@@ -210,7 +210,7 @@ class WhatsAppWebhookView(View):
 
 class WhatsAppConversationsView(APIView):
     """Lista las conversaciones agrupadas por número de teléfono."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         messages = WhatsAppMessage.objects.all().order_by('-created_at')
@@ -231,7 +231,7 @@ class WhatsAppConversationsView(APIView):
 
 class WhatsAppMessagesDetailView(APIView):
     """Mensajes de una conversación específica y envío manual desde la app."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, phone):
         msgs = WhatsAppMessage.objects.filter(sender_phone=phone).order_by('created_at')
@@ -260,9 +260,15 @@ class WhatsAppMessagesDetailView(APIView):
             message_text=text
         )
 
+        agent_name = contact_name
+        if not agent_name and request.user.is_authenticated:
+            agent_name = request.user.first_name or request.user.username
+        if not agent_name:
+            agent_name = 'Asesor AeroAgencia'
+
         msg = WhatsAppMessage.objects.create(
             sender_phone=phone,
-            sender_name=contact_name or request.user.first_name or request.user.username,
+            sender_name=agent_name,
             message_text=text,
             direction='outbound',
             is_auto_reply=False
@@ -282,7 +288,7 @@ class WhatsAppMessagesDetailView(APIView):
 
 class WhatsAppConfigView(APIView):
     """Consulta y actualización de credenciales de la API de WhatsApp Cloud."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         config = get_whatsapp_config()
