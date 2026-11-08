@@ -67,7 +67,7 @@ const App = () => {
     else localStorage.removeItem('agency_permissions');
   }, [permissions]);
 
-  const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
+  const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://31.220.21.83:8000';
   const authHeaders = (tkn: string | null) => ({
     'Content-Type': 'application/json',
     ...(tkn ? { Authorization: `Bearer ${tkn}` } : {}),

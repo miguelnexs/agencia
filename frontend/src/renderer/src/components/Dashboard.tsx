@@ -963,7 +963,7 @@ const Dashboard = ({
   onToggleTheme,
   onSignOut,
 }: any) => {
-  const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
+  const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://31.220.21.83:8000';
   const [view, setView] = useState('dashboard');
   const [bookingToEdit, setBookingToEdit] = useState<any>(null);
   const [stats, setStats] = useState({ bookings: 0, receipts: 0, employees: 0, admins: 0 });
