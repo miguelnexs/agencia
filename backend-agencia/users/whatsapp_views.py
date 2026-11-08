@@ -108,6 +108,46 @@ def send_meta_whatsapp_document(phone_number_id, access_token, to_phone, documen
         return False, str(e)
 
 
+def call_gemini_api(prompt, system_instruction, api_key, model="gemini-3.5-flash-lite"):
+    """Consulta la API de Google Gemini para enriquecer las respuestas de la IA."""
+    if not api_key:
+        return None
+
+    # Modelos recomendados y fallback
+    target_model = model or "gemini-3.5-flash-lite"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={api_key}"
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": system_instruction}]
+        },
+        "contents": [
+            {"parts": [{"text": prompt}]}
+        ],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 300
+        }
+    }
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            candidates = data.get("candidates", [])
+            if candidates:
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                if text:
+                    return text
+    except Exception as e:
+        logger.warning(f"Error o timeout consultando Gemini API ({target_model}): {e}")
+    return None
+
+
 def find_booking_for_conversation(text_content, from_phone):
     """Busca una reserva asociada al texto o al historial de la conversación."""
     clean_text = text_content.strip().upper()
@@ -141,21 +181,19 @@ def find_booking_for_conversation(text_content, from_phone):
 
 def process_ai_interaction(from_phone, sender_name, incoming_text, config):
     """
-    Motor de Inteligencia Artificial para atención al cliente y generación de Vouchers en PDF.
+    Motor de Inteligencia Artificial potenciado por Gemini y generador de Vouchers en PDF.
     Retorna: (reply_text, voucher_booking_to_send)
     """
     clean_text = incoming_text.strip().lower()
-    clean_phone = re.sub(r'\D', '', from_phone)
     client_name = sender_name or "Estimado(a) viajero(a)"
 
-    # Intenciones principales:
-    # A) Solicitar Voucher / Bauche / Recibo / PDF
+    # A) DETECCIÓN DE SOLICITUD DE VOUCHER / BAUCHE / RECIBO EN PDF
     voucher_keywords = [
         'bauche', 'voucher', 'baucher', 'vaucher', 'recibo', 'comprobante',
-        'pdf', 'tiquete', 'boleto', 'mi reserva en pdf', 'descargar voucher', 'enviame el voucher'
+        'pdf', 'tiquete', 'boleto', 'mi reserva en pdf', 'descargar voucher',
+        'enviame el voucher', 'enviame el bauche', 'mandame el bauche', 'dame el bauche'
     ]
     wants_voucher = any(kw in clean_text for kw in voucher_keywords)
-
     booking = find_booking_for_conversation(incoming_text, from_phone)
 
     if wants_voucher:
@@ -178,7 +216,7 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
             )
             return reply_text, None
 
-    # B) Si escribió directamente el código de su reserva o pide detalles
+    # B) SI CONSULTA DIRECTAMENTE POR UN CÓDIGO DE RESERVA
     if booking:
         nights = max((booking.check_out_date - booking.check_in_date).days, 1) if (booking.check_out_date and booking.check_in_date) else 1
         total = float(booking.room_value or 0) * nights * max(booking.rooms_count or 1, 1)
@@ -201,22 +239,7 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
         )
         return reply_text, None
 
-    # C) Saludos
-    greetings = ['hola', 'hola!', 'buenos dias', 'buenas tardes', 'buenas noches', 'hello', 'hi', 'inicio']
-    if any(g in clean_text for g in greetings):
-        return (
-            f"¡Hola {client_name}! Bienvenido(a) a *AeroAgencia* ✈️.\n\n"
-            f"Soy tu asistente virtual con Inteligencia Artificial. ¿En qué puedo colaborarte hoy?\n\n"
-            f"1️⃣ Escribe el *CÓDIGO* de tu reserva para consultar detalles.\n"
-            f"2️⃣ Escribe *VOUCHER* si necesitas descargar tu comprobante oficial en PDF.\n"
-            f"3️⃣ Escribe *ASESOR* para hablar con nuestro equipo humano."
-        ), None
-
-    # D) Menú u Opciones
-    if clean_text in ['menu', 'menú', 'ayuda', 'opciones', 'help', '3']:
-        return config.menu_message, None
-
-    # E) Solicitar Asesor Humano
+    # C) SOLICITUD DE ASESOR HUMANO
     if any(k in clean_text for k in ['asesor', 'agente', 'humano', 'persona', 'comercial']):
         return (
             f"👨‍✈️ *Atención Personalizada AeroAgencia*\n"
@@ -224,14 +247,52 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
             f"Por favor descríbenos tu inquietud o déjanos saber cómo podemos ayudarte."
         ), None
 
-    # F) Agradecimientos
+    # D) CONSULTA MEDIANTE GEMINI AI
+    gemini_key = getattr(config, 'gemini_api_key', '') or getattr(settings, 'GEMINI_API_KEY', '')
+    ai_active = getattr(config, 'ai_agent_enabled', True)
+
+    if ai_active and gemini_key:
+        system_instruction = (
+            "Eres el Asistente Virtual Oficial con Inteligencia Artificial de 'AeroAgencia Viajes & Turismo' "
+            "(Teléfono/WhatsApp oficial: +57 324 5362112). "
+            "Tu personalidad es extremadamente amable, empática, profesional y conocedora de turismo en Colombia y el mundo. "
+            "Responde en español de manera concisa para WhatsApp (máximo 2 a 3 párrafos cortos), usando formato WhatsApp (*negrita* y emojis). "
+            "Ofrecemos tiquetes aéreos, reservas hoteleras, paquetes turísticos, cruceros y asistencia al viajero. "
+            "Explícale al usuario que si tiene una reserva con nosotros, puede escribir su código (ejemplo: AEROA1) para consultar detalles "
+            "o escribir la palabra VOUCHER para recibir su comprobante oficial en PDF directamente en el chat. "
+            "Si el usuario pide hablar con un asesor, confirma amablemente que nuestro equipo humano se pondrá en contacto pronto."
+        )
+
+        gemini_reply = call_gemini_api(
+            prompt=f"Mensaje del usuario {client_name}: \"{incoming_text}\"",
+            system_instruction=system_instruction,
+            api_key=gemini_key,
+            model=getattr(config, 'ai_model', 'gemini-3.5-flash-lite') or 'gemini-3.5-flash-lite'
+        )
+
+        if gemini_reply:
+            return gemini_reply, None
+
+    # E) SALUDO DE RESPALDO (si Gemini no estuviera disponible)
+    greetings = ['hola', 'hola!', 'buenos dias', 'buenas tardes', 'buenas noches', 'hello', 'hi', 'inicio']
+    if any(g in clean_text for g in greetings):
+        return (
+            f"¡Hola {client_name}! Bienvenido(a) a *AeroAgencia* ✈️.\n\n"
+            f"Soy tu asistente virtual con Inteligencia Artificial de Gemini. ¿En qué puedo colaborarte hoy?\n\n"
+            f"1️⃣ Escribe el *CÓDIGO* de tu reserva para consultar detalles.\n"
+            f"2️⃣ Escribe *VOUCHER* si necesitas descargar tu comprobante oficial en PDF.\n"
+            f"3️⃣ Escribe *ASESOR* para hablar con nuestro equipo humano."
+        ), None
+
+    if clean_text in ['menu', 'menú', 'ayuda', 'opciones', 'help', '3']:
+        return config.menu_message, None
+
     if any(k in clean_text for k in ['gracias', 'muchas gracias', 'perfecto', 'excelente', 'vale', 'listo']):
         return f"¡Con muchísimo gusto {client_name}! En AeroAgencia estamos para servirte. ¡Que tengas un excelente viaje! ✈️🌟", None
 
-    # G) Respuesta contextual inteligente por defecto
     return (
-        f"Hola {client_name}, hemos recibido tu mensaje: \"{incoming_text}\".\n\n"
-        f"• Para ver los datos de tu viaje, escribe tu *CÓDIGO DE RESERVA* (ej: *AEROA1*).\n"
+        f"Hola {client_name}, gracias por escribir a AeroAgencia.\n\n"
+        f"• Para consultar tu viaje, escribe tu *CÓDIGO DE RESERVA* (ej: *AEROA1*).\n"
         f"• Para recibir tu confirmación oficial en PDF, escribe *VOUCHER*.\n"
         f"• Para comunicarte con un asesor, escribe *ASESOR*."
     ), None
@@ -242,7 +303,7 @@ class WhatsAppWebhookView(View):
     """
     Webhook oficial para WhatsApp Cloud API (Meta).
     GET: Validación inicial requerida por Meta App Dashboard.
-    POST: Recepción en vivo de mensajes, procesamiento con IA y despacho de Vouchers en PDF.
+    POST: Recepción en vivo de mensajes, procesamiento con Gemini AI y despacho de Vouchers en PDF.
     """
     def get(self, request):
         config = get_whatsapp_config()
@@ -334,13 +395,13 @@ class WhatsAppWebhookView(View):
                             # Registrar mensaje del archivo enviado
                             WhatsAppMessage.objects.create(
                                 sender_phone=from_phone,
-                                sender_name='AeroAgencia IA',
+                                sender_name='AeroAgencia Gemini AI',
                                 message_text=f"📄 [DOCUMENTO ADJUNTO: {filename}]\n{caption}",
                                 direction='outbound',
                                 is_auto_reply=True
                             )
 
-                        # 2. Enviar mensaje de texto aclaratorio
+                        # 2. Enviar mensaje de texto generado por la IA
                         send_meta_whatsapp_message(
                             phone_number_id=config.phone_number_id,
                             access_token=config.access_token,
@@ -351,7 +412,7 @@ class WhatsAppWebhookView(View):
                         # Registrar mensaje de texto enviado
                         WhatsAppMessage.objects.create(
                             sender_phone=from_phone,
-                            sender_name='AeroAgencia IA',
+                            sender_name='AeroAgencia Gemini AI',
                             message_text=reply_text,
                             direction='outbound',
                             is_auto_reply=True
@@ -510,7 +571,7 @@ class WhatsAppMessagesDetailView(APIView):
 
 
 class WhatsAppConfigView(APIView):
-    """Consulta y actualización de credenciales de la API de WhatsApp Cloud."""
+    """Consulta y actualización de credenciales de la API de WhatsApp Cloud y Gemini AI."""
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -521,6 +582,9 @@ class WhatsAppConfigView(APIView):
             'access_token': config.access_token,
             'webhook_verify_token': config.webhook_verify_token,
             'auto_reply_enabled': config.auto_reply_enabled,
+            'gemini_api_key': getattr(config, 'gemini_api_key', ''),
+            'ai_agent_enabled': getattr(config, 'ai_agent_enabled', True),
+            'ai_model': getattr(config, 'ai_model', 'gemini-3.5-flash-lite'),
             'welcome_message': config.welcome_message,
             'menu_message': config.menu_message,
         })
@@ -538,6 +602,12 @@ class WhatsAppConfigView(APIView):
             config.webhook_verify_token = data['webhook_verify_token'].strip()
         if 'auto_reply_enabled' in data:
             config.auto_reply_enabled = bool(data['auto_reply_enabled'])
+        if 'gemini_api_key' in data:
+            config.gemini_api_key = data['gemini_api_key'].strip()
+        if 'ai_agent_enabled' in data:
+            config.ai_agent_enabled = bool(data['ai_agent_enabled'])
+        if 'ai_model' in data:
+            config.ai_model = data['ai_model'].strip()
         if 'welcome_message' in data:
             config.welcome_message = data['welcome_message'].strip()
         if 'menu_message' in data:
@@ -550,13 +620,16 @@ class WhatsAppConfigView(APIView):
             'access_token': config.access_token,
             'webhook_verify_token': config.webhook_verify_token,
             'auto_reply_enabled': config.auto_reply_enabled,
+            'gemini_api_key': getattr(config, 'gemini_api_key', ''),
+            'ai_agent_enabled': getattr(config, 'ai_agent_enabled', True),
+            'ai_model': getattr(config, 'ai_model', 'gemini-3.5-flash-lite'),
             'welcome_message': config.welcome_message,
             'menu_message': config.menu_message,
         })
 
 
 class WhatsAppSimulateWebhookView(APIView):
-    """Simulador de webhook para pruebas desde el panel."""
+    """Simulador de webhook para pruebas desde el panel con Gemini AI."""
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -575,7 +648,7 @@ class WhatsAppSimulateWebhookView(APIView):
             is_auto_reply=False
         )
 
-        # Generar respuesta con IA
+        # Generar respuesta con Gemini AI y Voucher
         reply_text, voucher_booking = process_ai_interaction(
             from_phone=phone,
             sender_name=name,
@@ -587,7 +660,7 @@ class WhatsAppSimulateWebhookView(APIView):
             filename = f"Voucher_{voucher_booking.code}.pdf"
             WhatsAppMessage.objects.create(
                 sender_phone=phone,
-                sender_name='AeroAgencia IA',
+                sender_name='AeroAgencia Gemini AI',
                 message_text=f"📄 [DOCUMENTO ADJUNTO: {filename}]\n✈️ Voucher oficial de tu reserva {voucher_booking.code} en {voucher_booking.hotel_name}",
                 direction='outbound',
                 is_auto_reply=True
@@ -595,7 +668,7 @@ class WhatsAppSimulateWebhookView(APIView):
 
         WhatsAppMessage.objects.create(
             sender_phone=phone,
-            sender_name='AeroAgencia IA',
+            sender_name='AeroAgencia Gemini AI',
             message_text=reply_text,
             direction='outbound',
             is_auto_reply=True

@@ -58,6 +58,9 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
     access_token: '',
     webhook_verify_token: 'aeroagencia_token_seguro',
     auto_reply_enabled: true,
+    gemini_api_key: '',
+    ai_agent_enabled: true,
+    ai_model: 'gemini-3.5-flash-lite',
     welcome_message: '',
     menu_message: '',
   });
@@ -697,6 +700,59 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                 <label htmlFor="auto_reply_enabled" className="text-xs font-extrabold text-theme-text cursor-pointer">
                   Habilitar respuestas automáticas con datos de reservas
                 </label>
+              </div>
+            </div>
+
+            {/* SECCIÓN GOOGLE GEMINI AI */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-emerald-500/10 to-transparent border border-blue-500/25 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">✨</span>
+                  <div>
+                    <h4 className="text-xs font-black text-theme-text uppercase tracking-wider">
+                      Google Gemini AI — Motor Inteligente Oficial
+                    </h4>
+                    <span className="text-[10px] text-emerald-400 font-bold">
+                      Responde preguntas de turismo y genera Vouchers PDF automáticamente
+                    </span>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer bg-theme-background px-3 py-1.5 rounded-xl border border-theme-border">
+                  <input
+                    type="checkbox"
+                    checked={config.ai_agent_enabled}
+                    onChange={(e) => setConfig({ ...config, ai_agent_enabled: e.target.checked })}
+                    className="w-4 h-4 rounded text-blue-500 accent-blue-500"
+                  />
+                  <span className="text-xs font-bold text-theme-text">Gemini Activo</span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
+                    Gemini API Key
+                  </label>
+                  <input
+                    type="text"
+                    value={config.gemini_api_key}
+                    onChange={(e) => setConfig({ ...config, gemini_api_key: e.target.value })}
+                    placeholder="Pega aquí tu Gemini API Key..."
+                    className="w-full px-3 py-2 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-theme-textMuted block mb-1">
+                    Modelo de Gemini
+                  </label>
+                  <input
+                    type="text"
+                    value={config.ai_model}
+                    onChange={(e) => setConfig({ ...config, ai_model: e.target.value })}
+                    placeholder="gemini-3.5-flash-lite"
+                    className="w-full px-3 py-2 rounded-xl border border-theme-border bg-theme-background text-theme-text text-xs font-mono"
+                  />
+                </div>
               </div>
             </div>
 

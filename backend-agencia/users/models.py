@@ -158,6 +158,9 @@ class WhatsAppConfig(models.Model):
     access_token = models.TextField(blank=True, default='')
     webhook_verify_token = models.CharField(max_length=100, default='aeroagencia_token_seguro')
     auto_reply_enabled = models.BooleanField(default=True)
+    gemini_api_key = models.CharField(max_length=255, blank=True, default='')
+    ai_agent_enabled = models.BooleanField(default=True)
+    ai_model = models.CharField(max_length=50, default='gemini-3.5-flash-lite')
     welcome_message = models.TextField(
         default='¡Hola! Bienvenido a AeroAgencia ✈️. Puedes consultar el estado de tu reserva escribiendo tu código (ejemplo: GRXEB3) o escribir "menu" para ver las opciones.'
     )

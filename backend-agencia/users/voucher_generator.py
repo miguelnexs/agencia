@@ -328,3 +328,4 @@ def generate_voucher_pdf_bytes(booking) -> bytes:
 
     doc.build(story)
     return buffer.getvalue()
+
