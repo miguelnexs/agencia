@@ -14,6 +14,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .models import WhatsAppConfig, WhatsAppMessage, Booking
+from .voucher_generator import generate_voucher_pdf_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,6 @@ def send_meta_whatsapp_message(phone_number_id, access_token, to_phone, message_
         logger.warning("WhatsApp API no configurada (falta phone_number_id o access_token).")
         return False, "WhatsApp API no configurada (falta Phone ID o Token)."
 
-    # Normalizar número (quitar signos +, espacios o guiones)
     clean_to = re.sub(r'\D', '', to_phone)
     url = f"https://graph.facebook.com/v21.0/{phone_number_id}/messages"
     payload = {
@@ -49,7 +49,7 @@ def send_meta_whatsapp_message(phone_number_id, access_token, to_phone, message_
 
     try:
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=12) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             return True, data
     except urllib.error.HTTPError as e:
@@ -66,59 +66,183 @@ def send_meta_whatsapp_message(phone_number_id, access_token, to_phone, message_
         return False, str(e)
 
 
-def generate_auto_reply(incoming_text, sender_name, config):
-    """Motor de auto-respuesta inteligente para reservas y soporte."""
-    clean_text = incoming_text.strip().upper()
+def send_meta_whatsapp_document(phone_number_id, access_token, to_phone, document_url, filename, caption=""):
+    """Envía un documento PDF a través de WhatsApp Cloud API (Meta)."""
+    if not phone_number_id or not access_token:
+        return False, "WhatsApp API no configurada."
 
-    # 1. Comandos de menú o bienvenida
-    if clean_text in ['HOLA', 'HOLA!', 'BUENOS DIAS', 'BUENAS TARDES', 'BUENAS NOCHES', 'HELLO', 'HI', 'INICIO', 'START']:
-        saludo = f"¡Hola {sender_name}! " if sender_name else "¡Hola! "
-        return f"{saludo}{config.welcome_message}\n\n{config.menu_message}"
+    clean_to = re.sub(r'\D', '', to_phone)
+    url = f"https://graph.facebook.com/v21.0/{phone_number_id}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_to,
+        "type": "document",
+        "document": {
+            "link": document_url,
+            "filename": filename,
+            "caption": caption
+        }
+    }
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
 
-    if clean_text in ['MENU', 'MENÚ', 'AYUDA', 'OPCIONES', 'HELP', '3']:
-        return config.menu_message
+    try:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=18) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            return True, data
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode('utf-8')
+        logger.error(f"Error enviando documento WhatsApp a {clean_to}: {err_msg}")
+        try:
+            parsed = json.loads(err_msg)
+            error_detail = parsed.get('error', {}).get('message', err_msg)
+        except Exception:
+            error_detail = err_msg
+        return False, error_detail
+    except Exception as e:
+        logger.error(f"Excepción enviando documento WhatsApp: {e}")
+        return False, str(e)
 
-    if clean_text in ['ASESOR', 'AGENTE', 'HUMANO', '2']:
-        return "👨‍✈️ *Atención al Cliente AeroAgencia*\nUn asesor de nuestro equipo de operaciones se comunicará contigo por este mismo chat en breve. Por favor descríbenos tu consulta."
 
-    # 2. Buscar si escribió un código de reserva (patrón 5 letras + 1-2 números o buscar en la BD)
-    # Detectar cualquier token en el texto que se parezca a un código de reserva
-    potential_codes = re.findall(r'[A-Z0-9]{4,8}', clean_text)
-    for code_candidate in potential_codes:
-        booking = Booking.objects.filter(code__iexact=code_candidate).first()
+def find_booking_for_conversation(text_content, from_phone):
+    """Busca una reserva asociada al texto o al historial de la conversación."""
+    clean_text = text_content.strip().upper()
+
+    # 1. Buscar en el texto actual si hay un código con letras y números (ej. AEROA1 o GRXEB3)
+    codes_in_text = re.findall(r'[A-Z0-9]{4,8}', clean_text)
+    for code_candidate in codes_in_text:
+        b = Booking.objects.filter(code__iexact=code_candidate).first()
+        if b:
+            return b
+
+    # 2. Buscar en el historial reciente de mensajes de este número
+    clean_phone = re.sub(r'\D', '', from_phone)
+    recent_msgs = WhatsAppMessage.objects.filter(sender_phone=clean_phone).order_by('-created_at')[:8]
+    for msg in recent_msgs:
+        codes = re.findall(r'[A-Z0-9]{4,8}', msg.message_text.upper())
+        for code in codes:
+            b = Booking.objects.filter(code__iexact=code).first()
+            if b:
+                return b
+
+    # 3. Buscar si el teléfono coincide con los últimos 10 dígitos del teléfono en reservas
+    if len(clean_phone) >= 7:
+        phone_suffix = clean_phone[-10:]
+        b = Booking.objects.filter(phone__icontains=phone_suffix).first()
+        if b:
+            return b
+
+    return None
+
+
+def process_ai_interaction(from_phone, sender_name, incoming_text, config):
+    """
+    Motor de Inteligencia Artificial para atención al cliente y generación de Vouchers en PDF.
+    Retorna: (reply_text, voucher_booking_to_send)
+    """
+    clean_text = incoming_text.strip().lower()
+    clean_phone = re.sub(r'\D', '', from_phone)
+    client_name = sender_name or "Estimado(a) viajero(a)"
+
+    # Intenciones principales:
+    # A) Solicitar Voucher / Bauche / Recibo / PDF
+    voucher_keywords = [
+        'bauche', 'voucher', 'baucher', 'vaucher', 'recibo', 'comprobante',
+        'pdf', 'tiquete', 'boleto', 'mi reserva en pdf', 'descargar voucher', 'enviame el voucher'
+    ]
+    wants_voucher = any(kw in clean_text for kw in voucher_keywords)
+
+    booking = find_booking_for_conversation(incoming_text, from_phone)
+
+    if wants_voucher:
         if booking:
-            nights = (booking.check_out_date - booking.check_in_date).days if (booking.check_out_date and booking.check_in_date) else 1
-            total = float(booking.room_value or 0) * max(nights, 1) * max(booking.rooms_count or 1, 1)
-            return (
-                f"✈️ *Detalles de tu Reserva en AeroAgencia*\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"🎫 *Código:* {booking.code}\n"
-                f"👤 *Pasajero:* {booking.first_name}\n"
-                f"🏨 *Alojamiento:* {booking.hotel_name}\n"
-                f"📍 *Destino:* {booking.location or 'No especificado'}\n"
-                f"🛏 *Tipo de Habitación:* {booking.room_type}\n"
-                f"📅 *Check-in:* {booking.check_in_date}\n"
-                f"📅 *Check-out:* {booking.check_out_date} ({nights} noches)\n"
-                f"👥 *Huéspedes:* {booking.guests_count} | Habitaciones: {booking.rooms_count}\n"
-                f"💰 *Total:* {booking.currency_code} {total:,.2f}\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"Si necesitas asistencia personalizada, escribe *ASESOR*."
+            nights = max((booking.check_out_date - booking.check_in_date).days, 1) if (booking.check_out_date and booking.check_in_date) else 1
+            reply_text = (
+                f"✈️ *¡Con mucho gusto {client_name}!* Aquí tienes el *Voucher oficial en PDF* de tu reserva *{booking.code}*.\n\n"
+                f"📋 *Resumen de tu Viaje:*\n"
+                f"• *Pasajero:* {booking.first_name}\n"
+                f"• *Alojamiento:* {booking.hotel_name}\n"
+                f"• *Destino:* {booking.location or 'Colombia'}\n"
+                f"• *Fechas:* {booking.check_in_date} al {booking.check_out_date} ({nights} noches)\n\n"
+                f"Acabamos de adjuntar el documento PDF oficial aquí arriba para que lo descargues o lo lleves en tu teléfono al hacer el Check-in. ¡Feliz viaje con AeroAgencia!"
             )
+            return reply_text, booking
+        else:
+            reply_text = (
+                f"✈️ *¡Hola {client_name}!* Con mucho gusto te emitimos y enviamos tu Voucher oficial en formato PDF.\n\n"
+                f"Por favor facilítanos el *código de tu reserva* (por ejemplo: *AEROA1*) para generarlo de inmediato."
+            )
+            return reply_text, None
 
-    # 3. Respuesta por defecto
+    # B) Si escribió directamente el código de su reserva o pide detalles
+    if booking:
+        nights = max((booking.check_out_date - booking.check_in_date).days, 1) if (booking.check_out_date and booking.check_in_date) else 1
+        total = float(booking.room_value or 0) * nights * max(booking.rooms_count or 1, 1)
+        curr = booking.currency_code or "COP"
+        reply_text = (
+            f"✈️ *Detalles de tu Reserva en AeroAgencia*\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🎫 *Código:* {booking.code}\n"
+            f"👤 *Pasajero:* {booking.first_name}\n"
+            f"🏨 *Alojamiento:* {booking.hotel_name}\n"
+            f"📍 *Destino:* {booking.location or 'No especificado'}\n"
+            f"🛏 *Tipo de Habitación:* {booking.room_type}\n"
+            f"📅 *Check-in:* {booking.check_in_date} (15:00)\n"
+            f"📅 *Check-out:* {booking.check_out_date} (12:00)\n"
+            f"👥 *Huéspedes:* {booking.guests_count} | Habitaciones: {booking.rooms_count}\n"
+            f"💰 *Total Pagado:* {curr} {total:,.2f}\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"📄 *¿Deseas descargar tu Voucher oficial en PDF?*\n"
+            f"Solo responde escribiendo la palabra *VOUCHER* y te lo enviaremos al instante por este chat."
+        )
+        return reply_text, None
+
+    # C) Saludos
+    greetings = ['hola', 'hola!', 'buenos dias', 'buenas tardes', 'buenas noches', 'hello', 'hi', 'inicio']
+    if any(g in clean_text for g in greetings):
+        return (
+            f"¡Hola {client_name}! Bienvenido(a) a *AeroAgencia* ✈️.\n\n"
+            f"Soy tu asistente virtual con Inteligencia Artificial. ¿En qué puedo colaborarte hoy?\n\n"
+            f"1️⃣ Escribe el *CÓDIGO* de tu reserva para consultar detalles.\n"
+            f"2️⃣ Escribe *VOUCHER* si necesitas descargar tu comprobante oficial en PDF.\n"
+            f"3️⃣ Escribe *ASESOR* para hablar con nuestro equipo humano."
+        ), None
+
+    # D) Menú u Opciones
+    if clean_text in ['menu', 'menú', 'ayuda', 'opciones', 'help', '3']:
+        return config.menu_message, None
+
+    # E) Solicitar Asesor Humano
+    if any(k in clean_text for k in ['asesor', 'agente', 'humano', 'persona', 'comercial']):
+        return (
+            f"👨‍✈️ *Atención Personalizada AeroAgencia*\n"
+            f"Hemos notificado a nuestro equipo de asesores comerciales. Uno de nuestros agentes se comunicará contigo por este mismo chat en breve.\n\n"
+            f"Por favor descríbenos tu inquietud o déjanos saber cómo podemos ayudarte."
+        ), None
+
+    # F) Agradecimientos
+    if any(k in clean_text for k in ['gracias', 'muchas gracias', 'perfecto', 'excelente', 'vale', 'listo']):
+        return f"¡Con muchísimo gusto {client_name}! En AeroAgencia estamos para servirte. ¡Que tengas un excelente viaje! ✈️🌟", None
+
+    # G) Respuesta contextual inteligente por defecto
     return (
-        f"Hemos recibido tu mensaje: \"{incoming_text}\".\n\n"
-        f"• Para consultar una reserva, escribe el *CÓDIGO* de reserva (ej: GRXEB3).\n"
-        f"• Escribe *MENU* para ver las opciones disponibles o *ASESOR* para hablar con una persona."
-    )
+        f"Hola {client_name}, hemos recibido tu mensaje: \"{incoming_text}\".\n\n"
+        f"• Para ver los datos de tu viaje, escribe tu *CÓDIGO DE RESERVA* (ej: *AEROA1*).\n"
+        f"• Para recibir tu confirmación oficial en PDF, escribe *VOUCHER*.\n"
+        f"• Para comunicarte con un asesor, escribe *ASESOR*."
+    ), None
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class WhatsAppWebhookView(View):
     """
-    Webhook para WhatsApp Cloud API (Meta).
-    GET: Verificación del webhook requerida por Meta App Dashboard.
-    POST: Recepción de mensajes en tiempo real y auto-respuesta.
+    Webhook oficial para WhatsApp Cloud API (Meta).
+    GET: Validación inicial requerida por Meta App Dashboard.
+    POST: Recepción en vivo de mensajes, procesamiento con IA y despacho de Vouchers en PDF.
     """
     def get(self, request):
         config = get_whatsapp_config()
@@ -136,10 +260,9 @@ class WhatsAppWebhookView(View):
         try:
             body_unicode = request.body.decode('utf-8')
             data = json.loads(body_unicode)
-        except Exception as e:
+        except Exception:
             return HttpResponse('Bad Request', status=400)
 
-        # Verificar si es una notificación de WhatsApp
         entry = data.get('entry', [])
         if not entry:
             return HttpResponse('EVENT_RECEIVED', status=200)
@@ -158,7 +281,6 @@ class WhatsAppWebhookView(View):
                     msg_type = msg.get('type', '')
                     sender_name = contacts.get(from_phone, '')
 
-                    # Extraer texto del mensaje
                     text_content = ''
                     if msg_type == 'text':
                         text_content = msg.get('text', {}).get('body', '')
@@ -174,38 +296,139 @@ class WhatsAppWebhookView(View):
                     if WhatsAppMessage.objects.filter(message_id=msg_id).exists():
                         continue
 
-                    # Registrar mensaje entrante
-                    inbound_msg = WhatsAppMessage.objects.create(
+                    # Registrar mensaje recibido
+                    WhatsAppMessage.objects.create(
                         sender_phone=from_phone,
-                        sender_name=sender_name,
+                        sender_name=sender_name or from_phone,
                         message_text=text_content,
                         direction='inbound',
                         message_id=msg_id,
                         is_auto_reply=False
                     )
 
-                    # Si auto-respuesta está activa, responder automáticamente
+                    # Si las respuestas automáticas con IA están habilitadas
                     if config.auto_reply_enabled and text_content:
-                        reply_text = generate_auto_reply(text_content, sender_name, config)
-                        
-                        # Enviar a través de Meta API si está configurada
-                        send_ok, send_res = send_meta_whatsapp_message(
+                        reply_text, voucher_booking = process_ai_interaction(
+                            from_phone=from_phone,
+                            sender_name=sender_name,
+                            incoming_text=text_content,
+                            config=config
+                        )
+
+                        # Si se requiere enviar el PDF del Voucher
+                        if voucher_booking:
+                            voucher_url = f"https://globetrek.cloud/users/api/whatsapp/voucher/{voucher_booking.code}/"
+                            filename = f"Voucher_{voucher_booking.code}.pdf"
+                            caption = f"✈️ Voucher oficial de tu reserva {voucher_booking.code} - {voucher_booking.hotel_name}"
+
+                            # 1. Enviar el Documento PDF por WhatsApp
+                            send_meta_whatsapp_document(
+                                phone_number_id=config.phone_number_id,
+                                access_token=config.access_token,
+                                to_phone=from_phone,
+                                document_url=voucher_url,
+                                filename=filename,
+                                caption=caption
+                            )
+
+                            # Registrar mensaje del archivo enviado
+                            WhatsAppMessage.objects.create(
+                                sender_phone=from_phone,
+                                sender_name='AeroAgencia IA',
+                                message_text=f"📄 [DOCUMENTO ADJUNTO: {filename}]\n{caption}",
+                                direction='outbound',
+                                is_auto_reply=True
+                            )
+
+                        # 2. Enviar mensaje de texto aclaratorio
+                        send_meta_whatsapp_message(
                             phone_number_id=config.phone_number_id,
                             access_token=config.access_token,
                             to_phone=from_phone,
                             message_text=reply_text
                         )
 
-                        # Registrar mensaje de respuesta
+                        # Registrar mensaje de texto enviado
                         WhatsAppMessage.objects.create(
                             sender_phone=from_phone,
-                            sender_name='AeroAgencia Bot',
+                            sender_name='AeroAgencia IA',
                             message_text=reply_text,
                             direction='outbound',
                             is_auto_reply=True
                         )
 
         return HttpResponse('EVENT_RECEIVED', status=200)
+
+
+class WhatsAppBookingVoucherPDFView(APIView):
+    """Genera y descarga en vivo el PDF oficial del voucher de una reserva para WhatsApp y web."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, code):
+        booking = Booking.objects.filter(code__iexact=code.strip()).first()
+        if not booking:
+            return HttpResponse("Reserva no encontrada", status=404)
+
+        try:
+            pdf_bytes = generate_voucher_pdf_bytes(booking)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="Voucher_{booking.code}.pdf"'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return response
+        except Exception as e:
+            logger.error(f"Error generando voucher PDF para {code}: {e}")
+            return HttpResponse(f"Error generando PDF: {e}", status=500)
+
+
+class WhatsAppSendVoucherManualView(APIView):
+    """Permite al asesor en el dashboard enviar el PDF de voucher a un cliente con un solo clic."""
+    permission_classes = [AllowAny]
+
+    def post(self, request, phone):
+        booking_code = request.data.get('booking_code', '').strip()
+        booking = None
+
+        if booking_code:
+            booking = Booking.objects.filter(code__iexact=booking_code).first()
+
+        if not booking:
+            booking = find_booking_for_conversation(booking_code, phone)
+
+        if not booking:
+            return Response({'detail': 'No se encontró una reserva asociada con ese código.'}, status=status.HTTP_404_NOT_FOUND)
+
+        config = get_whatsapp_config()
+        voucher_url = f"https://globetrek.cloud/users/api/whatsapp/voucher/{booking.code}/"
+        filename = f"Voucher_{booking.code}.pdf"
+        caption = f"✈️ Voucher oficial de tu reserva {booking.code} en {booking.hotel_name}"
+
+        # 1. Enviar el documento
+        sent_ok, doc_res = send_meta_whatsapp_document(
+            phone_number_id=config.phone_number_id,
+            access_token=config.access_token,
+            to_phone=phone,
+            document_url=voucher_url,
+            filename=filename,
+            caption=caption
+        )
+
+        # 2. Registrar en base de datos
+        doc_msg = WhatsAppMessage.objects.create(
+            sender_phone=phone,
+            sender_name=request.user.first_name or request.user.username if request.user.is_authenticated else 'Asesor AeroAgencia',
+            message_text=f"📄 [VOUCHER PDF ENVIADO]: {filename}\n{caption}",
+            direction='outbound',
+            is_auto_reply=False
+        )
+
+        return Response({
+            'success': sent_ok,
+            'message_id': doc_msg.id,
+            'booking_code': booking.code,
+            'filename': filename,
+            'voucher_url': voucher_url,
+            'detail': 'Voucher enviado exitosamente por WhatsApp' if sent_ok else str(doc_res)
+        }, status=status.HTTP_200_OK if sent_ok else status.HTTP_207_MULTI_STATUS)
 
 
 class WhatsAppConversationsView(APIView):
@@ -320,25 +543,31 @@ class WhatsAppConfigView(APIView):
         if 'menu_message' in data:
             config.menu_message = data['menu_message'].strip()
         config.save()
-        return Response({'detail': 'Configuración de WhatsApp guardada exitosamente'})
+
+        return Response({
+            'phone_number_id': config.phone_number_id,
+            'whatsapp_business_account_id': config.whatsapp_business_account_id,
+            'access_token': config.access_token,
+            'webhook_verify_token': config.webhook_verify_token,
+            'auto_reply_enabled': config.auto_reply_enabled,
+            'welcome_message': config.welcome_message,
+            'menu_message': config.menu_message,
+        })
 
 
 class WhatsAppSimulateWebhookView(APIView):
-    """Simulador de prueba local para enviar mensajes de prueba desde la interfaz sin necesitar Meta activo aún."""
-    permission_classes = [IsAuthenticated]
+    """Simulador de webhook para pruebas desde el panel."""
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        phone = request.data.get('phone', '573001234567').strip()
-        name = request.data.get('name', 'Cliente Demo').strip()
-        incoming_text = request.data.get('message', 'Hola').strip()
-
-        if not incoming_text:
-            return Response({'detail': 'Mensaje requerido'}, status=400)
+        phone = request.data.get('phone', '573143291149')
+        name = request.data.get('name', 'Pasajero Demo')
+        incoming_text = request.data.get('message', 'AEROA1')
 
         config = get_whatsapp_config()
 
-        # Guardar mensaje entrante simulado
-        inbound = WhatsAppMessage.objects.create(
+        # Registrar el mensaje entrante simulado
+        WhatsAppMessage.objects.create(
             sender_phone=phone,
             sender_name=name,
             message_text=incoming_text,
@@ -346,30 +575,35 @@ class WhatsAppSimulateWebhookView(APIView):
             is_auto_reply=False
         )
 
-        reply_obj = None
-        if config.auto_reply_enabled:
-            reply_text = generate_auto_reply(incoming_text, name, config)
-            reply_obj = WhatsAppMessage.objects.create(
+        # Generar respuesta con IA
+        reply_text, voucher_booking = process_ai_interaction(
+            from_phone=phone,
+            sender_name=name,
+            incoming_text=incoming_text,
+            config=config
+        )
+
+        if voucher_booking:
+            filename = f"Voucher_{voucher_booking.code}.pdf"
+            WhatsAppMessage.objects.create(
                 sender_phone=phone,
-                sender_name='AeroAgencia Bot',
-                message_text=reply_text,
+                sender_name='AeroAgencia IA',
+                message_text=f"📄 [DOCUMENTO ADJUNTO: {filename}]\n✈️ Voucher oficial de tu reserva {voucher_booking.code} en {voucher_booking.hotel_name}",
                 direction='outbound',
                 is_auto_reply=True
             )
 
+        WhatsAppMessage.objects.create(
+            sender_phone=phone,
+            sender_name='AeroAgencia IA',
+            message_text=reply_text,
+            direction='outbound',
+            is_auto_reply=True
+        )
+
         return Response({
             'status': 'success',
-            'inbound': {
-                'id': inbound.id,
-                'text': inbound.message_text,
-                'sender_name': inbound.sender_name,
-                'created_at': inbound.created_at.strftime('%H:%M - %d/%m/%Y'),
-            },
-            'reply': {
-                'id': reply_obj.id,
-                'text': reply_obj.message_text,
-                'sender_name': reply_obj.sender_name,
-                'created_at': reply_obj.created_at.strftime('%H:%M - %d/%m/%Y'),
-            } if reply_obj else None
+            'reply': reply_text,
+            'voucher_sent': bool(voucher_booking),
+            'voucher_code': voucher_booking.code if voucher_booking else None
         })
-

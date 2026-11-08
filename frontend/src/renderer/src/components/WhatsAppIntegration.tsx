@@ -26,6 +26,7 @@ interface WhatsAppIntegrationProps {
 }
 
 const QUICK_TEMPLATES = [
+  { label: '📄 Solicitar Voucher', text: 'Quiero mi voucher de reserva por favor.' },
   { label: '👋 Saludo Inicial', text: '¡Hola! Te damos la bienvenida a AeroAgencia ✈️. ¿En qué podemos ayudarte el día de hoy?' },
   { label: '🎫 Consulta de Reserva', text: 'Por favor facilítanos el código de tu reserva (ejemplo: AEROA1) para brindarte los detalles de inmediato.' },
   { label: '📄 Solicitud de Documentos', text: 'Para completar el registro de tu viaje, requerimos una foto legible de tu cédula o pasaporte.' },
@@ -217,6 +218,39 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
       setStatusNotice({ type: 'error', text: '❌ Error de red al iniciar nuevo chat' });
     } finally {
       setNewChatSending(false);
+      setTimeout(() => setStatusNotice(null), 5000);
+    }
+  };
+
+  // Enviar Voucher PDF manual desde el panel
+  const [sendingVoucher, setSendingVoucher] = useState(false);
+  const handleSendVoucher = async () => {
+    if (!selectedPhone || sendingVoucher) return;
+    const code = prompt('Ingresa el código de reserva para generar y enviar el Voucher PDF (ejemplo: AEROA1):', 'AEROA1');
+    if (!code) return;
+
+    setSendingVoucher(true);
+    setStatusNotice({ type: 'info', text: `⏳ Generando voucher PDF para reserva ${code.trim().toUpperCase()}...` });
+
+    try {
+      const res = await fetch(`${apiBase}/users/api/whatsapp/messages/${selectedPhone}/send-voucher/`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ booking_code: code.trim().toUpperCase() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStatusNotice({ type: 'success', text: `✅ Voucher PDF oficial enviado a +${selectedPhone}` });
+        loadMessages(selectedPhone);
+        loadConversations();
+      } else {
+        setStatusNotice({ type: 'error', text: `❌ ${data.detail || 'Error al emitir voucher'}` });
+      }
+    } catch (e) {
+      console.error(e);
+      setStatusNotice({ type: 'error', text: '❌ Error de conexión al enviar voucher' });
+    } finally {
+      setSendingVoucher(false);
       setTimeout(() => setStatusNotice(null), 5000);
     }
   };
@@ -435,8 +469,18 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSendVoucher}
+                      disabled={sendingVoucher}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                      title="Genera y envía el PDF oficial del Voucher al cliente por WhatsApp"
+                    >
+                      <span>📄</span>
+                      <span>{sendingVoucher ? 'Generando PDF...' : 'Enviar Voucher PDF'}</span>
+                    </button>
                     <span className="text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
-                      🤖 Bot Activo
+                      🤖 IA Activa
                     </span>
                   </div>
                 </div>
@@ -464,10 +508,42 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                           >
                             {m.is_auto_reply && (
                               <div className="text-[9px] font-bold uppercase tracking-wider text-teal-200 mb-1 flex items-center gap-1">
-                                <span>🤖 Auto-Respuesta del Sistema</span>
+                                <span>🤖 AeroAgencia IA</span>
                               </div>
                             )}
-                            <div>{m.text}</div>
+                            {m.text.includes('[DOCUMENTO ADJUNTO') || m.text.includes('[VOUCHER PDF ENVIADO') ? (
+                              <div className="space-y-2">
+                                <div className="p-2.5 rounded-xl bg-black/20 border border-white/20 flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-rose-500/30 text-rose-300 flex items-center justify-center font-black text-xs">
+                                      PDF
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-xs text-white">Voucher Oficial de Servicio</div>
+                                      <div className="text-[9px] text-emerald-200">Comprobante emitido con IA</div>
+                                    </div>
+                                  </div>
+                                  {(() => {
+                                    const match = m.text.match(/Voucher_([A-Z0-9]+)\.pdf/i) || m.text.match(/\b([A-Z0-9]{5,7})\b/i);
+                                    const vCode = match ? match[1] : '';
+                                    return vCode ? (
+                                      <a
+                                        href={`https://globetrek.cloud/users/api/whatsapp/voucher/${vCode}/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold transition flex items-center gap-1"
+                                      >
+                                        <span>👁</span>
+                                        <span>Ver PDF</span>
+                                      </a>
+                                    ) : null;
+                                  })()}
+                                </div>
+                                <div className="text-[11px] opacity-95">{m.text}</div>
+                              </div>
+                            ) : (
+                              <div>{m.text}</div>
+                            )}
                             <div
                               className={`text-[9px] mt-1.5 flex items-center justify-end gap-1 ${
                                 isOut ? 'text-white/70' : 'text-theme-textMuted'

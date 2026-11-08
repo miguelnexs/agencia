@@ -11,6 +11,8 @@ urlpatterns = [
     path('api/whatsapp/webhook/', whatsapp_views.WhatsAppWebhookView.as_view(), name='whatsapp_webhook'),
     path('api/whatsapp/conversations/', whatsapp_views.WhatsAppConversationsView.as_view(), name='whatsapp_conversations'),
     path('api/whatsapp/messages/<str:phone>/', whatsapp_views.WhatsAppMessagesDetailView.as_view(), name='whatsapp_messages_detail'),
+    path('api/whatsapp/messages/<str:phone>/send-voucher/', whatsapp_views.WhatsAppSendVoucherManualView.as_view(), name='whatsapp_send_voucher_manual'),
+    path('api/whatsapp/voucher/<str:code>/', whatsapp_views.WhatsAppBookingVoucherPDFView.as_view(), name='whatsapp_voucher_pdf'),
     path('api/whatsapp/config/', whatsapp_views.WhatsAppConfigView.as_view(), name='whatsapp_config'),
     path('api/whatsapp/simulate/', whatsapp_views.WhatsAppSimulateWebhookView.as_view(), name='whatsapp_simulate'),
     # API segura (auth)
