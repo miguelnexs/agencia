@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=aeroagencia
+      - POSTGRES_USER=aeroagencia
+      - POSTGRES_PASSWORD=aeroagencia
+    ports:
+      - "5434:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aeroagencia -d aeroagencia"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py migrate &&
+             python ensure_initial_data.py &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - DJANGO_ALLOWED_HOSTS=* localhost 127.0.0.1 0.0.0.0 [::1]
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=aeroagencia
+      - SQL_USER=aeroagencia
+      - SQL_PASSWORD=aeroagencia
+      - SQL_HOST=db
+      - SQL_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

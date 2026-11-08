@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            line-height: 1.5; 
+            color: #333; 
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+        }
+        .container { 
+            width: 100%; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 40px; 
+            box-sizing: border-box;
+        }
+        .header { 
+            border-bottom: 2px solid #111; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+        }
+        .header-title { 
+            font-size: 24px; 
+            font-weight: 800; 
+            color: #111; 
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .confirmation-code { 
+            font-family: monospace; 
+            font-size: 22px; 
+            font-weight: bold; 
+            color: #111; 
+            text-align: right; 
+        }
+        .confirmation-label { 
+            font-size: 12px; 
+            color: #666; 
+            text-align: right; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .hotel-name { 
+            font-size: 32px; 
+            font-weight: 800; 
+            margin-bottom: 20px; 
+            color: #111; 
+            line-height: 1.2;
+        }
+        .section { 
+            margin-bottom: 30px; 
+            background-color: #f8fafc; 
+            padding: 25px; 
+            border-radius: 12px; 
+            border: 1px solid #e2e8f0;
+        }
+        .info-grid { 
+            width: 100%; 
+            table-layout: fixed;
+        }
+        .info-grid td { 
+            vertical-align: top; 
+            padding: 10px; 
+        }
+        .label { 
+            font-size: 11px; 
+            font-weight: 700; 
+            color: #64748b; 
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .value { 
+            font-size: 15px; 
+            color: #0f172a; 
+            font-weight: 500;
+        }
+        .summary-header {
+            background-color: #111; 
+            color: #fff; 
+            padding: 12px 20px; 
+            font-weight: 700; 
+            font-size: 14px; 
+            border-radius: 8px 8px 0 0;
+            letter-spacing: 0.5px;
+        }
+        .summary-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .summary-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background-color: #fff;
+        }
+        .summary-table td { 
+            padding: 12px 20px; 
+            border-bottom: 1px solid #f1f5f9; 
+            font-size: 14px;
+        }
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+        .summary-label {
+            font-weight: 600;
+            color: #64748b;
+            width: 35%;
+        }
+        .summary-value {
+            color: #0f172a;
+            font-weight: 500;
+        }
+        .footer { 
+            margin-top: 50px; 
+            text-align: center; 
+            font-size: 12px; 
+            color: #94a3b8; 
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .intro-text {
+            font-size: 16px;
+            color: #334155;
+            margin-bottom: 20px;
+        }
+
+        /* New classes for refactored sections */
+        .content-box {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        .image-frame {
+            position: relative;
+            width: 100%;
+            height: 150px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #fff;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+        }
+        .image-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .no-image-text {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .payment-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .payment-header {
+            background: #111111;
+            color: #ffffff;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .payment-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .payment-table th {
+            text-align: left;
+            padding: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        .payment-table td {
+            padding: 8px;
+            color: #0f172a;
+            font-size: 11px;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .font-bold {
+            font-weight: 700;
+        }
+        .row-light {
+            background: #f8fafc;
+        }
+        .row-total {
+            background: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <table width="100%">
+                <tr>
+                    <td valign="middle">
+                        <div class="header-title">Confirmación de Reserva</div>
+                    </td>
+                    <td align="right" valign="middle">
+                        <div class="confirmation-label">Código de confirmación</div>
+                        <div class="confirmation-code">{{ booking.code }}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <p class="intro-text">Estimado/a <strong>{{ booking.first_name }}</strong>, su reserva está confirmada.</p>
+
+        <div class="section">
+            <div class="hotel-name">{{ booking.hotel_name }}</div>
+            <table class="info-grid">
+                <tr>
+                    <td width="50%">
+                        <div class="label">Dirección</div>
+                        <div class="value">{{ booking.address }}</div>
+                    </td>
+                    <td width="25%">
+                        <div class="label">Check-in</div>
+                        <div class="value">{{ booking.check_in_date }}</div>
+                    </td>
+                    <td width="25%">
+                        <div class="label">Check-out</div>
+                        <div class="value">{{ booking.check_out_date }}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <table width="100%" style="table-layout:fixed; margin-bottom: 20px;">
+            <tr>
+                <td width="40%" style="padding-right:12px;">
+                    <div class="content-box">
+                        <div class="image-frame">
+                            {% if img1_url %}
+                                <img src="{{ img1_url }}" alt="Imagen huésped" />
+                            {% else %}
+                                <span class="no-image-text">Sin imagen</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td width="60%" style="padding-left:12px;">
+                    <div class="content-box">
+                        <table style="width:100%;">
+                            <tr>
+                                <td width="33%">
+                                    <div class="label">Tipo de habitación</div>
+                                    <div class="value">{{ booking.room_type|title }}</div>
+                                </td>
+                                <td width="33%">
+                                    <div class="label">Teléfono</div>
+                                    <div class="value">{{ booking.phone }}</div>
+                                </td>
+                                <td width="33%">
+                                    <div class="label">Ubicación</div>
+                                    <div class="value">{{ booking.location }}</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="payment-box">
+            <div class="payment-header">Información del Pago</div>
+            <table class="payment-table" style="border-collapse:collapse; border:1px solid #e2e8f0;">
+                <tbody>
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:12px; color:#0f172a; font-size:12px; font-weight:700; width:30%;">Habitación:</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:center;">{{ rooms }}</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:right; border-left:1px solid #e2e8f0; width:25%;">{{ rate_display }}</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:12px; color:#0f172a; font-size:12px; font-weight:700;">Noches:</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:center;">{% if nights %}{{ nights }}{% else %}-{% endif %}</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:right; border-left:1px solid #e2e8f0;">{% if nights %}{{ nights }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:12px; color:#0f172a; font-size:12px; font-weight:700;">Huéspedes:</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:center;">{{ booking.guests_count }}</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:right; border-left:1px solid #e2e8f0;">-</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; font-weight:700;">Total:</td>
+                        <td style="padding:12px; color:#0f172a; font-size:12px; text-align:center;"></td>
+                        <td style="padding:12px; color:#0f172a; font-size:14px; font-weight:700; text-align:right; border-left:1px solid #e2e8f0;">{{ total_display }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-header">RESUMEN DE LA RESERVA</div>
+            <table class="summary-table">
+                <tr>
+                    <td class="summary-label">Nombre del hotel</td>
+                    <td class="summary-value">{{ booking.hotel_name }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label">Tipo de habitación</td>
+                    <td class="summary-value">{{ booking.room_type|title }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label">Ubicación</td>
+                    <td class="summary-value">{{ booking.location }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label">Teléfono</td>
+                    <td class="summary-value">{{ booking.phone }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label">Habitaciones</td>
+                    <td class="summary-value">{{ booking.rooms_count }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>Gracias por confiar en nuestra agencia.</p>
+            <p>&copy; {% now "Y" %} Sistema de Gestión de Reservas.</p>
+        </div>
+    </div>
+</body>
+</html>

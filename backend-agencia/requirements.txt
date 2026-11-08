@@ -1,0 +1,10 @@
+Django>=5.0,<6.0
+djangorestframework
+django-cors-headers
+psycopg2-binary
+python-dotenv
+cryptography
+xhtml2pdf
+djangorestframework-simplejwt
+bcrypt
+gunicorn

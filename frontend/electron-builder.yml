@@ -1,0 +1,81 @@
+appId: com.globetrek.app
+productName: GlobeTrek
+copyright: Copyright © 2026 GlobeTrek
+directories:
+  output: dist-electron
+  buildResources: resources
+files:
+  - "out/**/*"
+  - "node_modules/**/*"
+  - "package.json"
+  - "!node_modules/.cache/**/*"
+  - "!node_modules/.vite/**/*"
+  - "!**/*.map"
+  - "!**/*.ts"
+  - "!src/**/*"
+  - "!dist-web/**/*"
+  - "!.git/**/*"
+  - "!.vscode/**/*"
+  - "!*.log"
+extraResources:
+  - from: "resources/"
+    to: "resources/"
+    filter:
+      - "**/*"
+asar: true
+compression: maximum
+removePackageScripts: true
+removePackageKeywords: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  requestedExecutionLevel: asInvoker
+  artifactName: "${productName}-Installer-${version}.${ext}"
+  publisherName: GlobeTrek
+  verifyUpdateCodeSignature: false
+  sign: false
+  signDlls: false
+  forceCodeSigning: false
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: GlobeTrek
+  deleteAppDataOnUninstall: false
+  installerLanguages:
+    - es-ES
+    - en-US
+  language: 3082
+  displayLanguageSelector: true
+  perMachine: false
+  differentialPackage: false
+
+mac:
+  target: dmg
+  category: public.app-category.business
+  artifactName: "${productName}-${version}.${ext}"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+linux:
+  target: AppImage
+  category: Office
+  artifactName: "${productName}-${version}.${ext}"
+  desktop:
+    Name: GlobeTrek
+    Comment: Sistema de gestión GlobeTrek
+    Keywords: gestion;viajes;empleados
+    Categories: Office;Business;
+    StartupNotify: true
+    Terminal: false
+    Type: Application
+
+publish:
+  provider: generic
+  url: https://globetrek.cloud/updates/

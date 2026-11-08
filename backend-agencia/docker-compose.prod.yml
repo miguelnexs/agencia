@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=globetrek
+      - POSTGRES_USER=globetrek
+      - POSTGRES_PASSWORD=globetrek
+    restart: always
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate &&
+             gunicorn globetrek_backend.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    expose:
+      - 8000
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=django-insecure-l_-p9gehx0n=^73ow2d==is-%hnx755!8$q@+5bwjb2h8#hgjp
+      - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1] globetrek.cloud www.globetrek.cloud
+      - CSRF_TRUSTED_ORIGINS=http://globetrek.cloud https://globetrek.cloud http://www.globetrek.cloud https://www.globetrek.cloud
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=globetrek
+      - SQL_USER=globetrek
+      - SQL_PASSWORD=globetrek
+      - SQL_HOST=db
+      - SQL_PORT=5432
+    depends_on:
+      - db
+    restart: always
+
+  nginx:
+    build: ./nginx
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ../frontend/dist-web:/app/frontend_dist
+      - ./nginx/certs:/etc/nginx/certs
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - web
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  certbot_conf:
+  certbot_www:
