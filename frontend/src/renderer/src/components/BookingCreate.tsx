@@ -13,7 +13,7 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     check_in_date: '',
     check_out_date: '',
     hotel_name: '',
-    room_type: 'single',
+    room_type: '',
     location: '',
     phone: '',
     room_value: '',
@@ -209,7 +209,7 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-theme-textSecondary text-[10px] uppercase tracking-widest font-bold ml-1">Tipo de habitación</label>
-                <input type="text" name="room_type" value={form.room_type} onChange={handleChange} className="px-4 py-3 rounded-xl bg-theme-background/30 text-theme-text border border-theme-border focus:outline-none focus:ring-2 focus:ring-theme-accent/40 transition text-sm" placeholder="Ej: Suite Deluxe, Individual..." />
+                <input type="text" name="room_type" value={form.room_type} onChange={handleChange} className="px-4 py-3 rounded-xl bg-theme-background/30 text-theme-text border border-theme-border focus:outline-none focus:ring-2 focus:ring-theme-accent/40 transition text-sm" placeholder="Ej: Suite Deluxe, Cabaña, Familiar..." />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-theme-textSecondary text-[10px] uppercase tracking-widest font-bold ml-1">Ubicación</label>
