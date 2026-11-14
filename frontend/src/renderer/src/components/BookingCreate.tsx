@@ -32,12 +32,48 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
-        try {
-          localStorage.setItem('custom_pdf_logo', reader.result);
-        } catch (e) {
-          console.warn('No se pudo guardar el logo en localStorage', e);
-        }
-        setLogoPreview(reader.result);
+        const rawDataUrl = reader.result;
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxW = 600;
+            const maxH = 200;
+            let w = img.naturalWidth || img.width || 300;
+            let h = img.naturalHeight || img.height || 100;
+            const ratio = Math.min(maxW / w, maxH / h, 1);
+            w = Math.max(1, Math.round(w * ratio));
+            h = Math.max(1, Math.round(h * ratio));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.clearRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+              const normalized = canvas.toDataURL('image/png');
+              (window as any).__customPdfLogo = normalized;
+              try {
+                localStorage.setItem('custom_pdf_logo', normalized);
+              } catch (err) {
+                console.warn('No se pudo guardar en localStorage:', err);
+              }
+              setLogoPreview(normalized);
+              return;
+            }
+          } catch (err) {
+            console.warn('Error normalizando logo:', err);
+          }
+          (window as any).__customPdfLogo = rawDataUrl;
+          try {
+            localStorage.setItem('custom_pdf_logo', rawDataUrl);
+          } catch {}
+          setLogoPreview(rawDataUrl);
+        };
+        img.onerror = () => {
+          (window as any).__customPdfLogo = rawDataUrl;
+          setLogoPreview(rawDataUrl);
+        };
+        img.src = rawDataUrl;
       }
     };
     reader.readAsDataURL(file);
@@ -72,10 +108,12 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     if (name === 'first_image') {
       if (firstPreview) URL.revokeObjectURL(firstPreview);
       setFirstPreview(file ? URL.createObjectURL(file) : null);
+      if (file && !form.logo_image && !form.second_image) saveLogoToStorage(file);
     }
     if (name === 'second_image') {
       if (secondPreview) URL.revokeObjectURL(secondPreview);
       setSecondPreview(file ? URL.createObjectURL(file) : null);
+      if (file && !form.logo_image) saveLogoToStorage(file);
     }
   };
   const handleFileDrop = (name, file) => {
@@ -87,13 +125,22 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
       return;
     }
     const url = URL.createObjectURL(file);
-    if (name === 'first_image') { if (firstPreview) URL.revokeObjectURL(firstPreview); setFirstPreview(url); }
-    if (name === 'second_image') { if (secondPreview) URL.revokeObjectURL(secondPreview); setSecondPreview(url); }
+    if (name === 'first_image') {
+      if (firstPreview) URL.revokeObjectURL(firstPreview);
+      setFirstPreview(url);
+      if (!form.logo_image && !form.second_image) saveLogoToStorage(file);
+    }
+    if (name === 'second_image') {
+      if (secondPreview) URL.revokeObjectURL(secondPreview);
+      setSecondPreview(url);
+      if (!form.logo_image) saveLogoToStorage(file);
+    }
   };
   const removeImage = (name) => {
     setForm((f) => ({ ...f, [name]: null }));
     if (name === 'logo_image') {
       if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+      delete (window as any).__customPdfLogo;
       localStorage.removeItem('custom_pdf_logo');
       setLogoPreview(null);
     }
@@ -226,7 +273,7 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
                 className="group relative flex items-center justify-center rounded-xl border-2 border-dashed border-theme-border bg-white h-28 w-full sm:w-72 cursor-pointer transition-all overflow-hidden p-3"
               >
                 <img
-                  src={logoPreview || AERO_LOGO_PDF_DATA_URI}
+                  src={logoPreview || secondPreview || firstPreview || AERO_LOGO_PDF_DATA_URI}
                   alt="Vista previa logo PDF"
                   className="max-h-full max-w-full object-contain"
                 />

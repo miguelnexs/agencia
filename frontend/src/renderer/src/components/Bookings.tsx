@@ -158,14 +158,21 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
   };
 
   const resolveBookingLogo = async (b) => {
-    const fromBooking = await resolveImageSrc(b?.logo_image);
-    if (fromBooking) return fromBooking;
+    if ((window as any).__customPdfLogo) {
+      return (window as any).__customPdfLogo;
+    }
     if (b?.id) {
       const perBooking = localStorage.getItem(`booking_logo_${b.id}`);
       if (perBooking) return perBooking;
     }
+    const fromBooking = await resolveImageSrc(b?.logo_image);
+    if (fromBooking) return fromBooking;
     const globalCustom = localStorage.getItem('custom_pdf_logo');
     if (globalCustom) return globalCustom;
+    const fromSecondImage = await resolveImageSrc(b?.second_image);
+    if (fromSecondImage) return fromSecondImage;
+    const fromFirstImage = await resolveImageSrc(b?.first_image);
+    if (fromFirstImage) return fromFirstImage;
     return logoNegro;
   };
 
@@ -433,17 +440,33 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     document.body.removeChild(el);
     return { blob, filename: `${baseName}.pdf` };
   };
+  const fetchFreshBooking = async (b) => {
+    if (!b?.id) return b;
+    try {
+      const res = await fetch(`${apiBase}/users/api/bookings/${b.id}/`, {
+        headers: authHeaders(token),
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const fresh = await res.json();
+        return { ...b, ...fresh };
+      }
+    } catch {}
+    return b;
+  };
+
   const downloadReceipt = async (b) => {
     try {
-      const { blob, filename } = await createReceiptPdfBlob(b);
+      const freshBooking = await fetchFreshBooking(b);
+      const { blob, filename } = await createReceiptPdfBlob(freshBooking);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
     } catch (e) {
       console.error('Error generando PDF:', e);
       setMsg({ type: 'error', text: 'Error generando el recibo. Por favor intenta de nuevo.' });
@@ -452,15 +475,16 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
 
   const downloadBookingPdf = async (b) => {
     try {
-      const { blob, filename } = await createBookingPdfBlob(b);
+      const freshBooking = await fetchFreshBooking(b);
+      const { blob, filename } = await createBookingPdfBlob(freshBooking);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
     } catch (e) {
       setMsg({ type: 'error', text: 'Error generando la reserva en PDF. Intenta de nuevo.' });
     }
@@ -606,8 +630,9 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
   const handleSendEmail = async (b) => {
     try {
       setIsSendingEmail(true);
-      const { blob: receiptBlob, filename: receiptName } = await createReceiptPdfBlob(b);
-      const { blob: bookingBlob, filename: bookingName } = await createBookingPdfBlob(b);
+      const freshBooking = await fetchFreshBooking(b);
+      const { blob: receiptBlob, filename: receiptName } = await createReceiptPdfBlob(freshBooking);
+      const { blob: bookingBlob, filename: bookingName } = await createBookingPdfBlob(freshBooking);
       const fd = new FormData();
       fd.append('receipt_pdf', receiptBlob, receiptName);
       fd.append('reservation_pdf', bookingBlob, bookingName);

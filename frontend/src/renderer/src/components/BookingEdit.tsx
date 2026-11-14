@@ -26,18 +26,66 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
 
   const saveLogoToStorage = (file: File | null) => {
     if (!file) return;
+    if (booking?.id && token && canEdit) {
+      const fd = new FormData();
+      fd.append('logo_image', file);
+      fetch(`${apiBase}/users/api/bookings/${booking.id}/`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      }).catch(() => {});
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
-        try {
-          localStorage.setItem('custom_pdf_logo', reader.result);
-          if (booking?.id) {
-            localStorage.setItem(`booking_logo_${booking.id}`, reader.result);
+        const rawDataUrl = reader.result;
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxW = 600;
+            const maxH = 200;
+            let w = img.naturalWidth || img.width || 300;
+            let h = img.naturalHeight || img.height || 100;
+            const ratio = Math.min(maxW / w, maxH / h, 1);
+            w = Math.max(1, Math.round(w * ratio));
+            h = Math.max(1, Math.round(h * ratio));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.clearRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+              const normalized = canvas.toDataURL('image/png');
+              (window as any).__customPdfLogo = normalized;
+              try {
+                localStorage.setItem('custom_pdf_logo', normalized);
+                if (booking?.id) {
+                  localStorage.setItem(`booking_logo_${booking.id}`, normalized);
+                }
+              } catch (err) {
+                console.warn('No se pudo guardar el logo en localStorage', err);
+              }
+              setLogoPreview(normalized);
+              return;
+            }
+          } catch (err) {
+            console.warn('Error normalizando logo:', err);
           }
-        } catch (e) {
-          console.warn('No se pudo guardar el logo en localStorage', e);
-        }
-        setLogoPreview(reader.result);
+          (window as any).__customPdfLogo = rawDataUrl;
+          try {
+            localStorage.setItem('custom_pdf_logo', rawDataUrl);
+            if (booking?.id) {
+              localStorage.setItem(`booking_logo_${booking.id}`, rawDataUrl);
+            }
+          } catch {}
+          setLogoPreview(rawDataUrl);
+        };
+        img.onerror = () => {
+          (window as any).__customPdfLogo = rawDataUrl;
+          setLogoPreview(rawDataUrl);
+        };
+        img.src = rawDataUrl;
       }
     };
     reader.readAsDataURL(file);
@@ -89,10 +137,12 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     if (name === 'first_image') {
       if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview);
       setFirstPreview(file ? URL.createObjectURL(file) : resolveImage(booking.first_image));
+      if (file && !form.logo_image && !form.second_image) saveLogoToStorage(file);
     }
     if (name === 'second_image') {
       if (secondPreview && !booking.second_image) URL.revokeObjectURL(secondPreview);
       setSecondPreview(file ? URL.createObjectURL(file) : resolveImage(booking.second_image));
+      if (file && !form.logo_image) saveLogoToStorage(file);
     }
   };
 
@@ -108,11 +158,13 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     const url = URL.createObjectURL(file);
     if (name === 'first_image') { 
         if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview); 
-        setFirstPreview(url); 
+        setFirstPreview(url);
+        if (!form.logo_image && !form.second_image) saveLogoToStorage(file);
     }
     if (name === 'second_image') { 
         if (secondPreview && !booking.second_image) URL.revokeObjectURL(secondPreview); 
-        setSecondPreview(url); 
+        setSecondPreview(url);
+        if (!form.logo_image) saveLogoToStorage(file);
     }
   };
 
@@ -120,6 +172,7 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     setForm((f) => ({ ...f, [name]: null }));
     if (name === 'logo_image') {
         if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+        delete (window as any).__customPdfLogo;
         localStorage.removeItem('custom_pdf_logo');
         if (booking?.id) localStorage.removeItem(`booking_logo_${booking.id}`);
         setLogoPreview(null);
@@ -275,12 +328,15 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
               )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
-              <div className="bg-white rounded-xl p-4 border border-theme-border flex flex-col items-center justify-center min-h-[110px] shadow-inner relative">
+              <div
+                onClick={() => document.getElementById('edit_logo_image_input')?.click()}
+                className="bg-white rounded-xl p-4 border border-theme-border flex flex-col items-center justify-center min-h-[110px] shadow-inner relative cursor-pointer hover:border-theme-primary/50 transition-all"
+              >
                 <span className="absolute top-2 left-3 text-[10px] uppercase tracking-wider font-bold text-slate-400">
-                  {logoPreview ? 'Nuevo logo seleccionado' : 'Vista previa en el PDF (Por defecto)'}
+                  {logoPreview ? '✓ Nuevo logo aplicado al PDF' : 'Vista previa en el PDF (Clic para cambiar)'}
                 </span>
                 <img
-                  src={logoPreview || AERO_LOGO_PDF_DATA_URI}
+                  src={logoPreview || secondPreview || firstPreview || AERO_LOGO_PDF_DATA_URI}
                   alt="Logo del PDF"
                   className="max-h-16 max-w-full object-contain mt-3"
                 />
