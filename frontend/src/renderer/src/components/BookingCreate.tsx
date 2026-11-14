@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AERO_LOGO_PDF_DATA_URI } from './AeroLogo';
 
 const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(null);
   const [firstPreview, setFirstPreview] = useState(null);
   const [secondPreview, setSecondPreview] = useState(null);
   const [form, setForm] = useState({
@@ -19,6 +21,7 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     room_value: '',
     rooms_count: 1,
     guests_count: 1,
+    logo_image: null,
     first_image: null,
     second_image: null,
     currency_code: 'EUR',
@@ -43,6 +46,10 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     const { name, files } = e.target;
     const file = files && files[0] ? files[0] : null;
     setForm((f) => ({ ...f, [name]: file }));
+    if (name === 'logo_image') {
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
+      setLogoPreview(file ? URL.createObjectURL(file) : null);
+    }
     if (name === 'first_image') {
       if (firstPreview) URL.revokeObjectURL(firstPreview);
       setFirstPreview(file ? URL.createObjectURL(file) : null);
@@ -57,11 +64,13 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     if (!file.type || !file.type.startsWith('image/')) { setMsg({ type: 'error', text: 'Archivo no válido: debe ser una imagen.' }); return; }
     setForm((f) => ({ ...f, [name]: file }));
     const url = URL.createObjectURL(file);
+    if (name === 'logo_image') { if (logoPreview) URL.revokeObjectURL(logoPreview); setLogoPreview(url); }
     if (name === 'first_image') { if (firstPreview) URL.revokeObjectURL(firstPreview); setFirstPreview(url); }
     if (name === 'second_image') { if (secondPreview) URL.revokeObjectURL(secondPreview); setSecondPreview(url); }
   };
   const removeImage = (name) => {
     setForm((f) => ({ ...f, [name]: null }));
+    if (name === 'logo_image') { if (logoPreview) URL.revokeObjectURL(logoPreview); setLogoPreview(null); }
     if (name === 'first_image') { if (firstPreview) URL.revokeObjectURL(firstPreview); setFirstPreview(null); }
     if (name === 'second_image') { if (secondPreview) URL.revokeObjectURL(secondPreview); setSecondPreview(null); }
   };
@@ -111,7 +120,7 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => () => { if (firstPreview) URL.revokeObjectURL(firstPreview); if (secondPreview) URL.revokeObjectURL(secondPreview); }, [firstPreview, secondPreview]);
+  useEffect(() => () => { if (logoPreview) URL.revokeObjectURL(logoPreview); if (firstPreview) URL.revokeObjectURL(firstPreview); if (secondPreview) URL.revokeObjectURL(secondPreview); }, [logoPreview, firstPreview, secondPreview]);
 
   return (
     <motion.div 
@@ -154,6 +163,81 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
       </AnimatePresence>
 
       <form onSubmit={createBooking} className="space-y-6 md:space-y-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-theme-surface border border-theme-border rounded-xl p-5 md:p-6 shadow-sm"
+          >
+            <div className="text-theme-primary font-bold text-xs uppercase tracking-widest mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-theme-primary"></div>
+                Logo superior del PDF (Encabezado)
+              </div>
+              <span className="text-[10px] font-semibold text-theme-textMuted normal-case">
+                {logoPreview ? 'Logo personalizado seleccionado' : 'Usando logo oficial por defecto'}
+              </span>
+            </div>
+            <input id="logo_image_input" type="file" name="logo_image" onChange={handleFileChange} accept="image/*" className="hidden" />
+            <div className="flex flex-col sm:flex-row items-center gap-5">
+              <motion.div
+                whileHover={{ scale: 1.01, borderColor: 'rgba(var(--color-primary-rgb), 0.5)' }}
+                onClick={() => { const el = document.getElementById('logo_image_input'); if (el) el.click(); }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer?.files?.[0]; if (f) handleFileDrop('logo_image', f); }}
+                className="group relative flex items-center justify-center rounded-xl border-2 border-dashed border-theme-border bg-white h-28 w-full sm:w-72 cursor-pointer transition-all overflow-hidden p-3"
+              >
+                <img
+                  src={logoPreview || AERO_LOGO_PDF_DATA_URI}
+                  alt="Vista previa logo PDF"
+                  className="max-h-full max-w-full object-contain"
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
+                  <button
+                    type="button"
+                    onClick={(ev) => { ev.stopPropagation(); const el = document.getElementById('logo_image_input'); if (el) el.click(); }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-black hover:bg-theme-primary hover:text-white transition-all"
+                  >
+                    Cambiar logo
+                  </button>
+                  {logoPreview && (
+                    <button
+                      type="button"
+                      onClick={(ev) => { ev.stopPropagation(); removeImage('logo_image'); }}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all"
+                    >
+                      Restaurar
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+              <div className="flex-1 flex flex-col gap-2 text-center sm:text-left">
+                <div className="text-sm font-bold text-theme-text">Personaliza el logo del encabezado del PDF</div>
+                <p className="text-xs text-theme-textSecondary">
+                  Haz clic en el recuadro o arrastra una nueva imagen para reemplazar el logo que aparece en la parte superior del comprobante y reserva en PDF.
+                </p>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => { const el = document.getElementById('logo_image_input'); if (el) el.click(); }}
+                    className="px-4 py-2 rounded-xl bg-theme-primary/15 hover:bg-theme-primary/25 text-theme-primary border border-theme-primary/30 text-xs font-bold transition"
+                  >
+                    Subir nueva imagen de logo
+                  </button>
+                  {logoPreview && (
+                    <button
+                      type="button"
+                      onClick={() => removeImage('logo_image')}
+                      className="px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold transition"
+                    >
+                      Usar logo por defecto
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
           <motion.div 
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }} 

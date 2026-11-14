@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AERO_LOGO_PDF_DATA_URI } from './AeroLogo';
 
 const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: any) => {
   const resolveImage = (img) => {
@@ -12,6 +13,8 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
 
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(resolveImage(booking?.logo_image));
+  const [removeLogo, setRemoveLogo] = useState(false);
   const [firstPreview, setFirstPreview] = useState(resolveImage(booking?.first_image));
   const [secondPreview, setSecondPreview] = useState(resolveImage(booking?.second_image));
   
@@ -28,6 +31,7 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     room_value: booking?.room_value || '',
     rooms_count: booking?.rooms_count || 1,
     guests_count: booking?.guests_count || 1,
+    logo_image: null, // New file upload
     first_image: null, // New file upload
     second_image: null, // New file upload
     currency_code: booking?.currency_code || 'EUR',
@@ -49,6 +53,11 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     const { name, files } = e.target;
     const file = files && files[0] ? files[0] : null;
     setForm((f) => ({ ...f, [name]: file }));
+    if (name === 'logo_image') {
+      if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+      setLogoPreview(file ? URL.createObjectURL(file) : resolveImage(booking?.logo_image));
+      if (file) setRemoveLogo(false);
+    }
     if (name === 'first_image') {
       if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview);
       setFirstPreview(file ? URL.createObjectURL(file) : booking.first_image);
@@ -64,6 +73,11 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     if (!file.type || !file.type.startsWith('image/')) { setMsg({ type: 'error', text: 'Archivo no válido: debe ser una imagen.' }); return; }
     setForm((f) => ({ ...f, [name]: file }));
     const url = URL.createObjectURL(file);
+    if (name === 'logo_image') {
+        if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+        setLogoPreview(url);
+        setRemoveLogo(false);
+    }
     if (name === 'first_image') { 
         if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview); 
         setFirstPreview(url); 
@@ -75,23 +89,18 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
   };
 
   const removeImage = (name) => {
-    setForm((f) => ({ ...f, [name]: null })); // If we want to delete existing image, we might need a separate flag or API support. For now, assuming this clears new upload.
-    // If user wants to remove EXISTING image, backend needs to handle that. 
-    // Assuming for now we just clear the preview if it was a new upload, or set to null if it was existing (implying deletion if backend supports sending null/empty).
-    // Let's just reset to initial if it was existing, or clear if new.
-    // Actually, usually you send a flag or empty string to clear.
-    // Let's keep it simple: if it's a new file, remove it. If it's existing, maybe we can't remove it easily without specific backend logic.
-    // For this implementation, I'll assume clearing means "don't upload new file" and restore preview if existing, OR we can hide preview.
-    
-    // Better behavior:
+    setForm((f) => ({ ...f, [name]: null }));
+    if (name === 'logo_image') {
+        if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+        setLogoPreview(null);
+        setForm(f => ({...f, logo_image: null}));
+        setRemoveLogo(true);
+    }
     if (name === 'first_image') {
         if (form.first_image) {
-             // Removing new upload
              if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview);
              setFirstPreview(booking.first_image);
              setForm(f => ({...f, first_image: null}));
-        } else {
-            // Removing existing?? Let's not support removing existing images for now unless requested, to be safe.
         }
     }
     if (name === 'second_image') {
@@ -134,13 +143,16 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
       Object.entries(form).forEach(([k, v]) => { 
           if (v !== null && v !== undefined) {
              // Only append if it's not the file fields (unless they have new files)
-             if (k === 'first_image' || k === 'second_image') {
+             if (k === 'logo_image' || k === 'first_image' || k === 'second_image') {
                  if (v instanceof File) fd.append(k, v);
              } else {
                  fd.append(k, v); 
              }
           }
       });
+      if (removeLogo && !form.logo_image) {
+        fd.append('remove_logo_image', 'true');
+      }
       fd.set('room_type', normalizeRoomType(form.room_type));
       
       const res = await fetch(`${apiBase}/users/api/bookings/${booking.id}/`, { method: 'PATCH', headers: authHeaders(token), body: fd });
@@ -155,9 +167,10 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
   };
 
   useEffect(() => () => { 
+      if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
       if (firstPreview && firstPreview !== booking.first_image) URL.revokeObjectURL(firstPreview); 
       if (secondPreview && secondPreview !== booking.second_image) URL.revokeObjectURL(secondPreview); 
-  }, [firstPreview, secondPreview, booking]);
+  }, [logoPreview, firstPreview, secondPreview, booking]);
 
   return (
     <motion.div 
@@ -200,6 +213,65 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
       </AnimatePresence>
 
       <form onSubmit={updateBooking} className="space-y-6 md:space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ delay: 0.05 }}
+            className="bg-theme-surface border border-theme-border rounded-xl p-5 md:p-6 shadow-sm"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div className="text-theme-primary font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-theme-primary"></div>
+                Logo superior del PDF (Encabezado)
+              </div>
+              {logoPreview && (
+                <button
+                  type="button"
+                  onClick={() => removeImage('logo_image')}
+                  className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Restaurar logo por defecto
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+              <div className="bg-white rounded-xl p-4 border border-theme-border flex flex-col items-center justify-center min-h-[110px] shadow-inner relative">
+                <span className="absolute top-2 left-3 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  {logoPreview ? 'Nuevo logo seleccionado' : 'Vista previa en el PDF (Por defecto)'}
+                </span>
+                <img
+                  src={logoPreview || AERO_LOGO_PDF_DATA_URI}
+                  alt="Logo del PDF"
+                  className="max-h-16 max-w-full object-contain mt-3"
+                />
+              </div>
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer?.files?.[0]; handleFileDrop('logo_image', file); }}
+                className="relative group h-[110px] rounded-xl border-2 border-dashed border-theme-border bg-theme-background/20 hover:bg-theme-background/40 hover:border-theme-primary/50 transition-all flex flex-col items-center justify-center p-4 text-center cursor-pointer overflow-hidden"
+              >
+                <input
+                  id="edit_logo_image_input"
+                  type="file"
+                  name="logo_image"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                />
+                <div className="w-9 h-9 rounded-full bg-theme-surface border border-theme-border flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-sm">
+                  <svg className="w-5 h-5 text-theme-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <p className="text-xs font-bold text-theme-text group-hover:text-theme-primary transition-colors">
+                  Haz clic o arrastra una nueva imagen para cambiar el logo
+                </p>
+                <p className="text-[11px] text-theme-textSecondary mt-0.5">
+                  Aparecerá en la parte superior del comprobante y confirmación PDF (PNG, JPG)
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
           <motion.div 
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }} 

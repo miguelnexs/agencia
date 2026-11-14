@@ -94,6 +94,7 @@ class Booking(models.Model):
         validators=[RegexValidator(regex=r'^[A-Z]{5}\d{1,2}$', message='Código debe tener 5 letras mayúsculas seguidas de 1 o 2 dígitos.')]
     )
     # Sección 1
+    logo_image = models.ImageField(upload_to='bookings/', null=True, blank=True)
     first_name = models.CharField(max_length=150)
     first_image = models.ImageField(upload_to='bookings/', null=True, blank=True)
     email = models.EmailField()

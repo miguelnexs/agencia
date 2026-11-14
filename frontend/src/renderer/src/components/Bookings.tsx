@@ -111,6 +111,31 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
   }, [token]);
 
 
+  const resolveImageSrc = async (u) => {
+    if (!u) return null;
+    if (typeof u === 'string' && (u.startsWith('data:') || u.startsWith('blob:'))) return u;
+    const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+    const path = typeof u === 'string' && u.startsWith('/') ? u : `/${u}`;
+    const abs = /^https?:/.test(u) ? u : `${base}${path}`;
+    try {
+      const res = await fetch(abs, { headers: authHeaders(token) });
+      if (!res.ok) return null;
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        console.warn('Image fetch returned HTML (likely 404 or proxy issue), ignoring:', abs);
+        return null;
+      }
+      const blob = await res.blob();
+      return await new Promise((done) => {
+        const reader = new FileReader();
+        reader.onloadend = () => done(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  };
+
   const createReceiptPdfBlob = async (b) => {
     const inDate = new Date(b.check_in_date);
     const outDate = new Date(b.check_out_date);
@@ -119,6 +144,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const roomRatePerNight = Number(b.room_value || 0);
     const roomsCount = Number(b.rooms_count || 1);
     const subtotal = roomRatePerNight * roomsCount * nights;
+    const customLogo = await resolveImageSrc(b.logo_image);
     
     // Generate QR
     const qrUrlText = `${window.location.origin}/download/${b.code || b.id || ''}`;
@@ -149,7 +175,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
       <div style="height:100%;display:flex;flex-direction:column;max-width:80%;margin:0 auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <img src="${logoNegro}" alt="Agencia" style="height:48px;display:block;" />
+            <img src="${customLogo || logoNegro}" alt="Agencia" style="height:48px;max-width:220px;object-fit:contain;display:block;" />
           </div>
           <div style="display:flex;align-items:center;gap:12px;">
             <div style="text-align:right;font-size:18px;color:#111827;font-weight:700;">
@@ -226,27 +252,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const nightsRaw = Math.round((outDate - inDate) / (1000 * 60 * 60 * 24));
     const nights = isNaN(nightsRaw) ? '-' : Math.max(1, nightsRaw);
     const subtotal = Number(b.room_value || 0) * Number(b.rooms_count || 1);
-    const resolveImageSrc = async (u) => {
-      if (!u) return null;
-      const abs = /^https?:/.test(u) ? u : `${apiBase}${u}`;
-      try {
-        const res = await fetch(abs, { headers: authHeaders(token) });
-        if (!res.ok) return null;
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('text/html')) {
-          console.warn('Image fetch returned HTML (likely 404 or proxy issue), ignoring:', abs);
-          return null;
-        }
-        const blob = await res.blob();
-        return await new Promise((done) => {
-          const reader = new FileReader();
-          reader.onloadend = () => done(reader.result);
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        return null;
-      }
-    };
+    const customLogo = await resolveImageSrc(b.logo_image);
     const img1 = await resolveImageSrc(b.first_image);
     const img2 = await resolveImageSrc(b.second_image);
     const total = typeof nights === 'number' ? subtotal * nights : subtotal;
@@ -265,7 +271,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:2px solid #111111;">
         <div style="display:flex;align-items:center;">
-          <img src="${logoNegro}" alt="Agencia" style="height:80px;display:block;" />
+          <img src="${customLogo || logoNegro}" alt="Agencia" style="height:80px;max-width:260px;object-fit:contain;display:block;" />
         </div>
         <div style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;">
           <div style="text-align:right;">

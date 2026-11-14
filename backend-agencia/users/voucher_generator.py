@@ -4,7 +4,7 @@ from datetime import date
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether, Image
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
@@ -125,10 +125,18 @@ def generate_voucher_pdf_bytes(booking) -> bytes:
 
     # 1. ENCABEZADO PRINCIPAL CON LOGO Y CÓDIGO
     today_str = date.today().strftime("%d/%m/%Y")
+    brand_header_element = Paragraph("<b>AEROAGENCIA</b><br/><font size=7 color='#059669'>AGENCIA DE VIAJES & TURISMO OFICIAL</font>", h1)
+    try:
+        if getattr(booking, 'logo_image', None) and booking.logo_image.name and os.path.exists(booking.logo_image.path):
+            brand_header_element = Image(booking.logo_image.path, width=140, height=48, kind='proportional')
+            brand_header_element.hAlign = 'LEFT'
+    except Exception:
+        pass
+
     header_table = Table(
         [
             [
-                Paragraph("<b>AEROAGENCIA</b><br/><font size=7 color='#059669'>AGENCIA DE VIAJES & TURISMO OFICIAL</font>", h1),
+                brand_header_element,
                 Paragraph(f"<b>VOUCHER DE SERVICIO</b><br/>Código: <font color='#059669'><b>{booking.code}</b></font><br/>Emisión: {today_str}", doc_title)
             ]
         ],

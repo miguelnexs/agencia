@@ -411,6 +411,7 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'code',
+            'logo_image',
             'first_name', 'first_image', 'email', 'address', 'check_in_date', 'check_out_date',
             'hotel_name', 'second_image', 'room_type', 'location', 'phone',
             'currency_code', 'room_value', 'rooms_count', 'guests_count',
@@ -513,6 +514,9 @@ class BookingDetailView(APIView):
         serializer = BookingSerializer(instance=booking, data=request.data, partial=True)
         if serializer.is_valid():
             booking = serializer.save()
+            if str(request.data.get('remove_logo_image', '')).lower() == 'true' and 'logo_image' not in request.FILES:
+                booking.logo_image = None
+                booking.save(update_fields=['logo_image'])
             return Response(BookingSerializer(booking).data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
