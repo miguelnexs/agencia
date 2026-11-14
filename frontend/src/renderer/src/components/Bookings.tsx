@@ -117,8 +117,12 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
     const path = typeof u === 'string' && u.startsWith('/') ? u : `/${u}`;
     const abs = /^https?:/.test(u) ? u : `${base}${path}`;
+    const cacheBustedUrl = `${abs}${abs.includes('?') ? '&' : '?'}cb=${Date.now()}`;
     try {
-      const res = await fetch(abs, { headers: authHeaders(token) });
+      let res = await fetch(cacheBustedUrl, { cache: 'no-store' });
+      if (!res.ok) {
+        res = await fetch(cacheBustedUrl, { headers: authHeaders(token), cache: 'no-store' });
+      }
       if (!res.ok) return null;
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('text/html')) {
@@ -136,6 +140,35 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     }
   };
 
+  const waitForImages = async (container: HTMLElement) => {
+    const imgs = Array.from(container.querySelectorAll('img'));
+    await Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete && img.naturalWidth > 0) {
+              resolve();
+              return;
+            }
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          })
+      )
+    );
+  };
+
+  const resolveBookingLogo = async (b) => {
+    const fromBooking = await resolveImageSrc(b?.logo_image);
+    if (fromBooking) return fromBooking;
+    if (b?.id) {
+      const perBooking = localStorage.getItem(`booking_logo_${b.id}`);
+      if (perBooking) return perBooking;
+    }
+    const globalCustom = localStorage.getItem('custom_pdf_logo');
+    if (globalCustom) return globalCustom;
+    return logoNegro;
+  };
+
   const createReceiptPdfBlob = async (b) => {
     const inDate = new Date(b.check_in_date);
     const outDate = new Date(b.check_out_date);
@@ -144,7 +177,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const roomRatePerNight = Number(b.room_value || 0);
     const roomsCount = Number(b.rooms_count || 1);
     const subtotal = roomRatePerNight * roomsCount * nights;
-    const customLogo = await resolveImageSrc(b.logo_image);
+    const customLogo = await resolveBookingLogo(b);
     
     // Generate QR
     const qrUrlText = `${window.location.origin}/download/${b.code || b.id || ''}`;
@@ -228,6 +261,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
       </div>
     `;
     document.body.appendChild(receiptContent);
+    await waitForImages(receiptContent);
     const baseName = b.code ? `Comprobante_${b.code}` : `Comprobante_${b.id}`;
     let blob;
     await html2pdf()
@@ -252,7 +286,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const nightsRaw = Math.round((outDate - inDate) / (1000 * 60 * 60 * 24));
     const nights = isNaN(nightsRaw) ? '-' : Math.max(1, nightsRaw);
     const subtotal = Number(b.room_value || 0) * Number(b.rooms_count || 1);
-    const customLogo = await resolveImageSrc(b.logo_image);
+    const customLogo = await resolveBookingLogo(b);
     const img1 = await resolveImageSrc(b.first_image);
     const img2 = await resolveImageSrc(b.second_image);
     const total = typeof nights === 'number' ? subtotal * nights : subtotal;
@@ -288,7 +322,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
       <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start;">
         <div style="background:#f8fafc;padding:12px;border-radius:6px;">
           <div style="position:relative;width:100%;height:150px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px;">
-            ${img1 ? `<img src="${img1}" alt="Imagen 1" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;" />` : `<span style="color:#94a3b8;font-size:12px;">Sin imagen</span>`}
+            ${img1 ? `<img src="${img1}" alt="Imagen 1" style="width:100%;height:100%;object-fit:cover;" />` : `<span style="color:#94a3b8;font-size:12px;">Sin imagen</span>`}
           </div>
         </div>
         <div style="background:#f8fafc;padding:12px;border-radius:6px;">
@@ -337,7 +371,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
         </div>
         <div style="background:#f8fafc;padding:12px;border-radius:6px;">
           <div style="position:relative;width:100%;height:200px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px;">
-            ${img2 ? `<img src="${img2}" alt="Imagen 2" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;" />` : `<span style="color:#94a3b8;font-size:12px;">Sin imagen</span>`}
+            ${img2 ? `<img src="${img2}" alt="Imagen 2" style="width:100%;height:100%;object-fit:cover;" />` : `<span style="color:#94a3b8;font-size:12px;">Sin imagen</span>`}
           </div>
         </div>
       </div>
@@ -387,6 +421,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
       </div>
     `;
     document.body.appendChild(el);
+    await waitForImages(el);
     const baseName = b.code ? `Reserva_${b.code}` : `Reserva_${b.id}`;
     let blob;
     await html2pdf()

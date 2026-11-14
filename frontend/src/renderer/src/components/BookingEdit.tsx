@@ -13,10 +13,35 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
 
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [logoPreview, setLogoPreview] = useState(resolveImage(booking?.logo_image));
+  const [logoPreview, setLogoPreview] = useState(
+    () =>
+      resolveImage(booking?.logo_image) ||
+      (booking?.id ? localStorage.getItem(`booking_logo_${booking.id}`) : null) ||
+      localStorage.getItem('custom_pdf_logo') ||
+      null
+  );
   const [removeLogo, setRemoveLogo] = useState(false);
   const [firstPreview, setFirstPreview] = useState(resolveImage(booking?.first_image));
   const [secondPreview, setSecondPreview] = useState(resolveImage(booking?.second_image));
+
+  const saveLogoToStorage = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        try {
+          localStorage.setItem('custom_pdf_logo', reader.result);
+          if (booking?.id) {
+            localStorage.setItem(`booking_logo_${booking.id}`, reader.result);
+          }
+        } catch (e) {
+          console.warn('No se pudo guardar el logo en localStorage', e);
+        }
+        setLogoPreview(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   
   const [form, setForm] = useState({
     first_name: booking?.first_name || '',
@@ -54,17 +79,20 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     const file = files && files[0] ? files[0] : null;
     setForm((f) => ({ ...f, [name]: file }));
     if (name === 'logo_image') {
-      if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
-      setLogoPreview(file ? URL.createObjectURL(file) : resolveImage(booking?.logo_image));
-      if (file) setRemoveLogo(false);
+      if (file) {
+        saveLogoToStorage(file);
+        setRemoveLogo(false);
+      } else {
+        setLogoPreview(resolveImage(booking?.logo_image));
+      }
     }
     if (name === 'first_image') {
       if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview);
-      setFirstPreview(file ? URL.createObjectURL(file) : booking.first_image);
+      setFirstPreview(file ? URL.createObjectURL(file) : resolveImage(booking.first_image));
     }
     if (name === 'second_image') {
       if (secondPreview && !booking.second_image) URL.revokeObjectURL(secondPreview);
-      setSecondPreview(file ? URL.createObjectURL(file) : booking.second_image);
+      setSecondPreview(file ? URL.createObjectURL(file) : resolveImage(booking.second_image));
     }
   };
 
@@ -72,12 +100,12 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     if (!file) return;
     if (!file.type || !file.type.startsWith('image/')) { setMsg({ type: 'error', text: 'Archivo no válido: debe ser una imagen.' }); return; }
     setForm((f) => ({ ...f, [name]: file }));
-    const url = URL.createObjectURL(file);
     if (name === 'logo_image') {
-        if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
-        setLogoPreview(url);
+        saveLogoToStorage(file);
         setRemoveLogo(false);
+        return;
     }
+    const url = URL.createObjectURL(file);
     if (name === 'first_image') { 
         if (firstPreview && !booking.first_image) URL.revokeObjectURL(firstPreview); 
         setFirstPreview(url); 
@@ -92,6 +120,8 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
     setForm((f) => ({ ...f, [name]: null }));
     if (name === 'logo_image') {
         if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+        localStorage.removeItem('custom_pdf_logo');
+        if (booking?.id) localStorage.removeItem(`booking_logo_${booking.id}`);
         setLogoPreview(null);
         setForm(f => ({...f, logo_image: null}));
         setRemoveLogo(true);
@@ -144,12 +174,21 @@ const BookingEdit = ({ token, apiBase, role, permissions, setView, booking }: an
           if (v !== null && v !== undefined) {
              // Only append if it's not the file fields (unless they have new files)
              if (k === 'logo_image' || k === 'first_image' || k === 'second_image') {
-                 if (v instanceof File) fd.append(k, v);
+                 if (v instanceof File || v instanceof Blob) fd.append(k, v);
              } else {
-                 fd.append(k, v); 
+                 fd.append(k, v as any); 
              }
           }
       });
+      if (!form.logo_image && !removeLogo && logoPreview && logoPreview.startsWith('data:')) {
+        try {
+          const resBlob = await fetch(logoPreview);
+          const blob = await resBlob.blob();
+          fd.append('logo_image', blob, 'custom_logo.png');
+        } catch (err) {
+          console.warn('No se pudo adjuntar logo desde dataURL', err);
+        }
+      }
       if (removeLogo && !form.logo_image) {
         fd.append('remove_logo_image', 'true');
       }

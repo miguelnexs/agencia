@@ -5,7 +5,7 @@ import { AERO_LOGO_PDF_DATA_URI } from './AeroLogo';
 const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(() => localStorage.getItem('custom_pdf_logo') || null);
   const [firstPreview, setFirstPreview] = useState(null);
   const [secondPreview, setSecondPreview] = useState(null);
   const [form, setForm] = useState({
@@ -27,6 +27,22 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     currency_code: 'EUR',
   });
 
+  const saveLogoToStorage = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        try {
+          localStorage.setItem('custom_pdf_logo', reader.result);
+        } catch (e) {
+          console.warn('No se pudo guardar el logo en localStorage', e);
+        }
+        setLogoPreview(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const authHeaders = (tkn) => {
     if (!tkn) return {};
     return { Authorization: `Bearer ${tkn.trim()}` };
@@ -47,8 +63,11 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     const file = files && files[0] ? files[0] : null;
     setForm((f) => ({ ...f, [name]: file }));
     if (name === 'logo_image') {
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-      setLogoPreview(file ? URL.createObjectURL(file) : null);
+      if (file) {
+        saveLogoToStorage(file);
+      } else {
+        setLogoPreview(null);
+      }
     }
     if (name === 'first_image') {
       if (firstPreview) URL.revokeObjectURL(firstPreview);
@@ -63,14 +82,21 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     if (!file) return;
     if (!file.type || !file.type.startsWith('image/')) { setMsg({ type: 'error', text: 'Archivo no válido: debe ser una imagen.' }); return; }
     setForm((f) => ({ ...f, [name]: file }));
+    if (name === 'logo_image') {
+      saveLogoToStorage(file);
+      return;
+    }
     const url = URL.createObjectURL(file);
-    if (name === 'logo_image') { if (logoPreview) URL.revokeObjectURL(logoPreview); setLogoPreview(url); }
     if (name === 'first_image') { if (firstPreview) URL.revokeObjectURL(firstPreview); setFirstPreview(url); }
     if (name === 'second_image') { if (secondPreview) URL.revokeObjectURL(secondPreview); setSecondPreview(url); }
   };
   const removeImage = (name) => {
     setForm((f) => ({ ...f, [name]: null }));
-    if (name === 'logo_image') { if (logoPreview) URL.revokeObjectURL(logoPreview); setLogoPreview(null); }
+    if (name === 'logo_image') {
+      if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+      localStorage.removeItem('custom_pdf_logo');
+      setLogoPreview(null);
+    }
     if (name === 'first_image') { if (firstPreview) URL.revokeObjectURL(firstPreview); setFirstPreview(null); }
     if (name === 'second_image') { if (secondPreview) URL.revokeObjectURL(secondPreview); setSecondPreview(null); }
   };
@@ -103,7 +129,19 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     const err = validateForm(); if (err) { setMsg({ type: 'error', text: err }); return; }
     setLoading(true); setMsg(null);
     try {
-      const fd = new FormData(); Object.entries(form).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => {
+        if (v !== null && v !== undefined) fd.append(k, v as any);
+      });
+      if (!form.logo_image && logoPreview && logoPreview.startsWith('data:')) {
+        try {
+          const resBlob = await fetch(logoPreview);
+          const blob = await resBlob.blob();
+          fd.append('logo_image', blob, 'custom_logo.png');
+        } catch (err) {
+          console.warn('No se pudo adjuntar logo desde dataURL', err);
+        }
+      }
       fd.set('room_type', normalizeRoomType(form.room_type));
       
       const res = await fetch(`${apiBase}/users/api/bookings/`, { method: 'POST', headers: authHeaders(token), body: fd });
@@ -120,7 +158,7 @@ const BookingCreate = ({ token, apiBase, role, permissions, setView }: any) => {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => () => { if (logoPreview) URL.revokeObjectURL(logoPreview); if (firstPreview) URL.revokeObjectURL(firstPreview); if (secondPreview) URL.revokeObjectURL(secondPreview); }, [logoPreview, firstPreview, secondPreview]);
+  useEffect(() => () => { if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview); if (firstPreview) URL.revokeObjectURL(firstPreview); if (secondPreview) URL.revokeObjectURL(secondPreview); }, [logoPreview, firstPreview, secondPreview]);
 
   return (
     <motion.div 
