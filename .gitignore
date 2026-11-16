@@ -53,6 +53,9 @@ temp/
 .DS_Store
 Thumbs.db
 
+# Submodules / Separate repos
+sin-limites-travel-stories/
+
 # Mobile (React Native / Expo)
 .expo/
 *.jks

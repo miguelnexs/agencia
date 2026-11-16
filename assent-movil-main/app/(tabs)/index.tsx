@@ -1,135 +1,521 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors } from '../../constants/Colors';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import {
+  Plane,
+  Ticket,
+  DollarSign,
+  TrendingUp,
+  Users,
+  PlusCircle,
+  RefreshCw,
+  LogOut,
+  Sun,
+  Moon,
+  Calendar,
+  MapPin,
+  ChevronRight,
+  ShieldCheck,
+} from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { API_URL } from '../../constants/Config';
 
 const apiBase = API_URL;
 
-const KPI = ({ label, value, delta, positive }: any) => {
+const SparkBars = ({ data, color }: { data: number[]; color: string }) => {
+  const max = Math.max(...data, 1);
   return (
-    <View style={styles.kpiCard}>
-      <Text style={styles.kpiLabel}>{label}</Text>
-      <Text style={styles.kpiValue}>{String(value)}</Text>
-      {typeof delta !== 'undefined' && (
-        <Text style={[styles.kpiDelta, { color: positive ? Colors.dark.success : Colors.dark.error }]}>
-          {positive ? '▲' : '▼'} {delta}%
-        </Text>
-      )}
-    </View>
-  );
-};
-
-const SparkBars = ({ data, color = Colors.dark.primary }: any) => {
-  const max = Math.max(...data);
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 36 }}>
-      {data.map((d: number, i: number) => (
-        <View key={i} style={{ width: 6, height: ((d / (max || 1)) * 36), backgroundColor: color, marginRight: 3, borderRadius: 3 }} />
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 34, gap: 4 }}>
+      {data.map((d, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: Math.max(6, (d / max) * 34),
+            backgroundColor: color,
+            borderRadius: 4,
+            opacity: i === data.length - 1 ? 1 : 0.65,
+          }}
+        />
       ))}
     </View>
   );
 };
 
-const RichKPI = ({ icon, label, value, delta, positive, series }: any) => {
-  return (
-    <View style={styles.richKpi}>
-      <View style={styles.richKpiHeader}>
-        <Text style={styles.kpiLabel}>{label}</Text>
-        {typeof delta !== 'undefined' && (
-          <Text style={[styles.kpiDelta, { color: positive ? Colors.dark.success : Colors.dark.error }]}>
-            {positive ? '▲' : '▼'} {delta}%
-          </Text>
-        )}
-      </View>
-      <Text style={styles.kpiValue}>{String(value)}</Text>
-      {Array.isArray(series) && series.length > 1 && <SparkBars data={series} />}
-    </View>
-  );
-};
+export default function DashboardScreen() {
+  const { token, role, username, signOut } = useAuth();
+  const { colors, isDark, toggleTheme } = useTheme();
+  const router = useRouter();
 
-const SimpleBarChart = ({ data }: any) => {
-  const max = Math.max(...data);
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 100 }}>
-      {data.map((d: number, i: number) => (
-        <View key={i} style={{ width: 18, height: ((d / (max || 1)) * 100), backgroundColor: Colors.dark.info, marginRight: 6, borderRadius: 4 }} />
-      ))}
-    </View>
-  );
-};
+  const [stats, setStats] = useState({
+    bookings: 0,
+    receipts: 0,
+    employees: 0,
+    admins: 0,
+  });
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [seriesA, setSeriesA] = useState([4, 6, 5, 8, 7, 10, 12]);
 
-const StatsPanel = ({ stats, seriesA }: any) => {
-  const bookings = Number(stats.bookings || 0);
-  const receipts = Number(stats.receipts || 0);
-  const avgTicket = bookings > 0 ? Math.round((receipts / bookings) * 100) / 100 : 0;
-  const deltaBookings = seriesA.length > 1 ? Math.round(((seriesA[seriesA.length - 1] - seriesA[seriesA.length - 2]) / (seriesA[seriesA.length - 2] || 1)) * 100) : 0;
-  return (
-    <View>
-      <View style={styles.grid3}>
-        <RichKPI icon="ticket" label="Reservas totales" value={bookings} delta={Math.abs(deltaBookings)} positive={deltaBookings >= 0} series={seriesA} />
-        <RichKPI icon="money" label="Ingresos estimados" value={`$ ${receipts}`} series={seriesA} />
-        <RichKPI icon="trend" label="Ticket promedio" value={avgTicket ? `$ ${avgTicket}` : 'N/D'} />
-      </View>
-      <View style={styles.grid2}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tendencia de reservas</Text>
-          <SparkBars data={seriesA} color={Colors.dark.primary} />
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Reservas por región</Text>
-          <SimpleBarChart data={[5, 3, 6, 2, 4, 7]} />
-        </View>
-      </View>
-    </View>
-  );
-};
-
-export default function Dashboard() {
-  const { token, role, signOut } = useAuth();
-  const [stats, setStats] = useState({ bookings: 0, receipts: 0, employees: 0, admins: 0 });
-  const [seriesA, setSeriesA] = useState([3, 5, 4, 6, 8, 7, 9]);
-
-  useEffect(() => {
+  const loadDashboardData = useCallback(async () => {
     if (!token) return;
-    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-    fetch(`${apiBase}/users/api/stats/`, { headers })
-      .then(async (res) => {
-        let data;
-        try { data = await res.json(); } catch { data = null; }
-        return { ok: res.ok, data };
-      })
-      .then(({ ok, data }) => {
-        if (ok && data) {
+    setLoading(true);
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+
+    try {
+      const [statsRes, bookingsRes] = await Promise.all([
+        fetch(`${apiBase}/users/api/stats/`, { headers }).catch(() => null),
+        fetch(`${apiBase}/users/api/bookings/?page=1&page_size=5&ordering=-created_at`, {
+          headers,
+        }).catch(() => null),
+      ]);
+
+      if (statsRes && statsRes.ok) {
+        const sData = await statsRes.json().catch(() => null);
+        if (sData) {
           setStats({
-            bookings: Number(data.total_bookings || 0),
-            receipts: Number(data.total_receipts || data.total_bookings || 0),
-            employees: Number(data.total_employees || 0),
-            admins: Number(data.total_admins || 0),
+            bookings: Number(sData.total_bookings || 0),
+            receipts: Number(sData.total_receipts || sData.total_bookings || 0),
+            employees: Number(sData.total_employees || 0),
+            admins: Number(sData.total_admins || 0),
           });
         }
-      })
-      .catch(() => {});
+      }
+
+      if (bookingsRes && bookingsRes.ok) {
+        const bData = await bookingsRes.json().catch(() => null);
+        if (bData && Array.isArray(bData.results)) {
+          setRecentBookings(bData.results);
+          const totalCount = Number(bData.total || bData.results.length || 0);
+          const sumRevenue = bData.results.reduce((acc: number, item: any) => {
+            const ci = item.check_in_date ? new Date(item.check_in_date) : new Date();
+            const co = item.check_out_date ? new Date(item.check_out_date) : new Date();
+            const nights = Math.max(
+              1,
+              Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24)) || 1,
+            );
+            const rate = Number(item.room_value || 0);
+            const rooms = Number(item.rooms_count || 1);
+            return acc + rate * rooms * nights;
+          }, 0);
+
+          setStats((prev) => ({
+            ...prev,
+            bookings: prev.bookings || totalCount,
+            receipts: prev.receipts > 100 ? prev.receipts : Math.round(sumRevenue),
+          }));
+
+          const chartVals = bData.results
+            .slice(0, 7)
+            .reverse()
+            .map((b: any) => Math.max(1, Number(b.room_value || 100)));
+          if (chartVals.length >= 2) {
+            setSeriesA(chartVals);
+          }
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
 
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const avgTicket =
+    stats.bookings > 0 ? Math.round(stats.receipts / stats.bookings) : 0;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcome}>Panel de Agencia</Text>
-          <Text style={styles.role}>Rol: {role}</Text>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={loadDashboardData}
+          tintColor={colors.primary}
+        />
+      }
+    >
+      {/* Top Executive Header */}
+      <View
+        style={[
+          styles.headerCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.headerTopRow}>
+          <View style={styles.brandRow}>
+            <LinearGradient
+              colors={['#14B8A6', '#0284C7']}
+              style={styles.brandBadge}
+            >
+              <Plane size={20} color="#FFFFFF" />
+            </LinearGradient>
+            <View>
+              <Text style={[styles.brandTitle, { color: colors.text }]}>
+                AERO<Text style={{ color: colors.primary }}>AGENCIA</Text>
+              </Text>
+              <Text style={[styles.brandSub, { color: colors.textSecondary }]}>
+                {username || 'Operador'} · {(role || 'staff').toUpperCase()}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={toggleTheme}
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: colors.surfaceLight,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              {isDark ? (
+                <Sun size={17} color="#FBBF24" />
+              ) : (
+                <Moon size={17} color={colors.accent} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={loadDashboardData}
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: colors.surfaceLight,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <RefreshCw size={17} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={signOut}
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: 'rgba(244, 63, 94, 0.14)',
+                  borderColor: 'rgba(244, 63, 94, 0.3)',
+                },
+              ]}
+            >
+              <LogOut size={17} color={colors.error} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity onPress={signOut} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Salir</Text>
+
+        <View
+          style={[
+            styles.statusBanner,
+            { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+          ]}
+        >
+          <ShieldCheck size={15} color={colors.success} />
+          <Text style={[styles.statusBannerText, { color: colors.textSecondary }]}>
+            Central de Reservas sincronizada · Generación de PDFs activa
+          </Text>
+        </View>
+      </View>
+
+      {/* 2x2 KPI Grid */}
+      <View style={styles.kpiGrid}>
+        <View
+          style={[
+            styles.kpiCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.kpiHeader}>
+            <View
+              style={[
+                styles.kpiIconBox,
+                { backgroundColor: 'rgba(20, 184, 166, 0.15)' },
+              ]}
+            >
+              <Ticket size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.kpiBadge, { color: colors.success }]}>
+              ▲ Activo
+            </Text>
+          </View>
+          <Text style={[styles.kpiValue, { color: colors.text }]}>
+            {stats.bookings}
+          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+            Reservas Totales
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.kpiCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.kpiHeader}>
+            <View
+              style={[
+                styles.kpiIconBox,
+                { backgroundColor: 'rgba(14, 165, 233, 0.15)' },
+              ]}
+            >
+              <DollarSign size={18} color={colors.info} />
+            </View>
+            <Text style={[styles.kpiBadge, { color: colors.info }]}>EUR/USD</Text>
+          </View>
+          <Text style={[styles.kpiValue, { color: colors.text }]}>
+            € {stats.receipts.toLocaleString()}
+          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+            Volumen Estimado
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.kpiCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.kpiHeader}>
+            <View
+              style={[
+                styles.kpiIconBox,
+                { backgroundColor: 'rgba(245, 158, 11, 0.15)' },
+              ]}
+            >
+              <TrendingUp size={18} color={colors.warning} />
+            </View>
+            <Text style={[styles.kpiBadge, { color: colors.warning }]}>
+              Promedio
+            </Text>
+          </View>
+          <Text style={[styles.kpiValue, { color: colors.text }]}>
+            € {avgTicket.toLocaleString()}
+          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+            Ticket por Reserva
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.kpiCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.kpiHeader}>
+            <View
+              style={[
+                styles.kpiIconBox,
+                { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+              ]}
+            >
+              <Users size={18} color={colors.success} />
+            </View>
+            <Text style={[styles.kpiBadge, { color: colors.success }]}>
+              {stats.admins} Admin
+            </Text>
+          </View>
+          <Text style={[styles.kpiValue, { color: colors.text }]}>
+            {stats.employees + stats.admins || 1}
+          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+            Equipo Operativo
+          </Text>
+        </View>
+      </View>
+
+      {/* Quick Actions */}
+      <Text style={[styles.sectionHeading, { color: colors.text }]}>
+        Operaciones Rápidas
+      </Text>
+      <View style={styles.quickGrid}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push('/(tabs)/create-booking')}
+          style={styles.quickActionPrimary}
+        >
+          <LinearGradient
+            colors={['#14B8A6', '#0284C7']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.quickGradient}
+          >
+            <PlusCircle size={22} color="#FFFFFF" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.quickPrimaryTitle}>Nueva Reserva</Text>
+              <Text style={styles.quickPrimarySub}>
+                Con logo editable, fotos y cálculo automático
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#FFFFFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <View style={styles.quickSecondaryRow}>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/bookings')}
+            style={[
+              styles.quickCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Ticket size={20} color={colors.primary} />
+            <Text style={[styles.quickCardTitle, { color: colors.text }]}>
+              Ver Reservas
+            </Text>
+            <Text style={[styles.quickCardSub, { color: colors.textSecondary }]}>
+              Editar, enviar correo y PDFs
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/users')}
+            style={[
+              styles.quickCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Users size={20} color={colors.info} />
+            <Text style={[styles.quickCardTitle, { color: colors.text }]}>
+              Personal y Roles
+            </Text>
+            <Text style={[styles.quickCardSub, { color: colors.textSecondary }]}>
+              Usuarios y permisos
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Trend Chart Card */}
+      <View
+        style={[
+          styles.chartCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.chartHeader}>
+          <View>
+            <Text style={[styles.chartTitle, { color: colors.text }]}>
+              Ritmo de Actividad Reciente
+            </Text>
+            <Text style={[styles.chartSub, { color: colors.textSecondary }]}>
+              Evolución de reservas emitidas por el sistema
+            </Text>
+          </View>
+          <Text style={[styles.chartHighlight, { color: colors.primary }]}>
+            100% Operativo
+          </Text>
+        </View>
+        <SparkBars data={seriesA} color={colors.primary} />
+      </View>
+
+      {/* Recent Bookings Feed */}
+      <View style={styles.recentHeaderRow}>
+        <Text style={[styles.sectionHeading, { color: colors.text, marginBottom: 0 }]}>
+          Últimas Reservas Emitidas
+        </Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/bookings')}>
+          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>
+            Ver todas →
+          </Text>
         </TouchableOpacity>
       </View>
-      
-      <StatsPanel stats={stats} seriesA={seriesA} />
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Resumen</Text>
-        <Text style={styles.cardSubtitle}>Vista general del sistema con métricas clave y gráficos rápidos.</Text>
-      </View>
+      {recentBookings.length === 0 ? (
+        <View
+          style={[
+            styles.emptyBox,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+            No hay reservas recientes para mostrar.
+          </Text>
+        </View>
+      ) : (
+        recentBookings.map((b) => (
+          <TouchableOpacity
+            key={b.id}
+            activeOpacity={0.85}
+            onPress={() => router.push('/(tabs)/bookings')}
+            style={[
+              styles.bookingRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View style={{ flex: 1 }}>
+              <View style={styles.bookingTopLine}>
+                <View
+                  style={[
+                    styles.codeBadge,
+                    { backgroundColor: 'rgba(20, 184, 166, 0.14)' },
+                  ]}
+                >
+                  <Text style={[styles.codeBadgeText, { color: colors.primary }]}>
+                    #{b.code || b.id}
+                  </Text>
+                </View>
+                <Text
+                  style={[styles.bookingGuest, { color: colors.text }]}
+                  numberOfLines={1}
+                >
+                  {b.first_name || 'Huésped'}
+                </Text>
+              </View>
+
+              <View style={styles.bookingMetaLine}>
+                <MapPin size={12} color={colors.textSecondary} />
+                <Text
+                  style={[styles.bookingHotel, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {b.hotel_name || 'Alojamiento'} · {b.location || ''}
+                </Text>
+              </View>
+
+              <View style={styles.bookingMetaLine}>
+                <Calendar size={12} color={colors.info} />
+                <Text style={[styles.bookingDates, { color: colors.textMuted }]}>
+                  {b.check_in_date || '-'} → {b.check_out_date || '-'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+              <Text style={[styles.bookingPrice, { color: colors.primary }]}>
+                {b.currency_code || 'EUR'} {b.room_value || '0'}
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                / noche
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -137,44 +523,239 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    paddingBottom: 80,
-    backgroundColor: Colors.dark.background,
-    minHeight: '100%',
+    paddingTop: 48,
+    paddingBottom: 96,
   },
-  header: {
+  headerCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
   },
-  welcome: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: Colors.dark.text,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  role: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
+  brandBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutBtn: {
+  brandTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  brandSub: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBanner: {
+    marginTop: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: Colors.dark.error,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  logoutText: {
-    color: '#fff',
+  statusBannerText: {
+    fontSize: 11,
     fontWeight: '600',
   },
-  grid3: { flexDirection: 'row', gap: 12, justifyContent: 'space-between', marginBottom: 12 },
-  grid2: { flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
-  kpiCard: { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border, borderRadius: 12, padding: 12, flex: 1 },
-  richKpi: { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border, borderRadius: 12, padding: 12, flex: 1 },
-  richKpiHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  kpiLabel: { color: Colors.dark.textSecondary, fontSize: 12 },
-  kpiValue: { color: Colors.dark.text, fontSize: 22, fontWeight: '700', marginTop: 4 },
-  kpiDelta: { fontSize: 12, marginTop: 4 },
-  card: { backgroundColor: Colors.dark.card, borderWidth: 1, borderColor: Colors.dark.border, borderRadius: 12, padding: 12, marginBottom: 12 },
-  cardTitle: { color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
-  cardSubtitle: { color: Colors.dark.textSecondary, fontSize: 12, marginTop: 4 },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  kpiCard: {
+    width: '48%',
+    flexGrow: 1,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+  },
+  kpiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  kpiIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kpiBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  sectionHeading: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  quickGrid: {
+    gap: 10,
+    marginBottom: 18,
+  },
+  quickActionPrimary: {
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  quickGradient: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  quickPrimaryTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  quickPrimarySub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  quickSecondaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickCard: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    gap: 6,
+  },
+  quickCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  quickCardSub: {
+    fontSize: 11,
+  },
+  chartCard: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 20,
+    gap: 14,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  chartTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  chartSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  chartHighlight: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  recentHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  emptyBox: {
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  bookingRow: {
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bookingTopLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  codeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  codeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: 'monospace',
+  },
+  bookingGuest: {
+    fontSize: 14,
+    fontWeight: '800',
+    flex: 1,
+  },
+  bookingMetaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+  },
+  bookingHotel: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  bookingDates: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  bookingPrice: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
 });

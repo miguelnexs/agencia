@@ -1,13 +1,13 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Colors } from '../constants/Colors';
-import { ThemeProvider } from '../context/ThemeContext';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { View, ActivityIndicator } from 'react-native';
 
 function RootLayoutNav() {
   const { token, isLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -25,42 +25,51 @@ function RootLayoutNav() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.dark.background }}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <ThemeProvider>
-      <StatusBar style="light" />
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerStyle: {
-            backgroundColor: Colors.dark.background,
+            backgroundColor: colors.surface,
           },
-          headerTintColor: Colors.dark.text,
+          headerTintColor: colors.text,
           headerTitleStyle: {
             fontWeight: 'bold',
           },
           contentStyle: {
-            backgroundColor: Colors.dark.background,
+            backgroundColor: colors.background,
           },
           animation: 'slide_from_right',
         }}
       >
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="details" options={{ title: 'Detalles' }} />
+        <Stack.Screen name="details" options={{ title: 'Detalles de Reserva' }} />
       </Stack>
-    </ThemeProvider>
+    </>
   );
 }
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -1,12 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useState } from 'react';
 import { Colors } from '../constants/Colors';
 
 type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
-  colors: typeof Colors.light;
+  isDark: boolean;
+  colors: typeof Colors.dark;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
 }
@@ -14,16 +14,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useColorScheme();
-  const [theme, setThemeState] = useState<Theme>(systemScheme === 'dark' ? 'dark' : 'light');
-
-  // Update theme if system changes, but allow manual override
-  // In a real app, you'd save this to AsyncStorage
-  useEffect(() => {
-    if (systemScheme) {
-      setThemeState(systemScheme);
-    }
-  }, [systemScheme]);
+  const [theme, setThemeState] = useState<Theme>('dark');
 
   const toggleTheme = () => {
     setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
@@ -36,7 +27,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const colors = Colors[theme];
 
   return (
-    <ThemeContext.Provider value={{ theme, colors, toggleTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        isDark: theme === 'dark',
+        colors,
+        toggleTheme,
+        setTheme,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
