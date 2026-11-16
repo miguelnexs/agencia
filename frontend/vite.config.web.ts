@@ -22,7 +22,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/media': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://31.220.21.83:8000',
         changeOrigin: true,
         secure: false,
       }
