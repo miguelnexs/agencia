@@ -18,7 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { API_URL } from '../../constants/Config';
+import { API_URL, DOWNLOAD_BASE_URL } from '../../constants/Config';
 
 const apiBase = API_URL;
 const CURRENCIES = ['EUR', 'USD', 'COP', 'GBP', 'MXN', 'ARS', 'CLP', 'PEN', 'BRL'];
@@ -263,7 +263,8 @@ export default function BookingsScreen() {
 
   const openPublicDownloadPage = (code?: string) => {
     if (!code) return;
-    const downloadUrl = `http://localhost:5173/download/${encodeURIComponent(code)}`;
+    const base = DOWNLOAD_BASE_URL.endsWith('/') ? DOWNLOAD_BASE_URL.slice(0, -1) : DOWNLOAD_BASE_URL;
+    const downloadUrl = `${base}/download/${encodeURIComponent(code)}`;
     Linking.openURL(downloadUrl).catch(() => {});
   };
 

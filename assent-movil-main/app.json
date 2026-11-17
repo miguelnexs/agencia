@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Assent Dashboard",
-    "slug": "assent-dashboard",
-    "scheme": "assent",
+    "name": "AeroAgencia",
+    "slug": "aeroagencia",
+    "scheme": "aeroagencia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,20 +11,26 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#050914"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.miguelnexs.assentdashboard"
+      "bundleIdentifier": "com.miguelnexs.aeroagencia",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#050914"
       },
+      "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.assentdashboard"
+      "package": "com.miguelnexs.aeroagencia"
     },
     "web": {
       "favicon": "./assets/favicon.png"
