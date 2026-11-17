@@ -1,6 +1,6 @@
 import { MaterialTopTabs } from '../../components/MaterialTopTabs';
 import { useTheme } from '../../context/ThemeContext';
-import { Home, Ticket, PlusCircle, Users } from 'lucide-react-native';
+import { Home, Ticket, PlusCircle, MessageCircle, Users } from 'lucide-react-native';
 import { Platform } from 'react-native';
 
 export default function TabLayout() {
@@ -61,6 +61,13 @@ export default function TabLayout() {
         options={{
           title: 'Nueva',
           tabBarIcon: ({ color }) => <PlusCircle color={color} size={20} />,
+        }}
+      />
+      <MaterialTopTabs.Screen
+        name="whatsapp"
+        options={{
+          title: 'WhatsApp',
+          tabBarIcon: ({ color }) => <MessageCircle color={color} size={20} />,
         }}
       />
       <MaterialTopTabs.Screen

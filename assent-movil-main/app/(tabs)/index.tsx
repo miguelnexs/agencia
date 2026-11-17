@@ -25,6 +25,7 @@ import {
   MapPin,
   ChevronRight,
   ShieldCheck,
+  MessageCircle,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -408,6 +409,60 @@ export default function DashboardScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push('/(tabs)/whatsapp' as any)}
+          style={[
+            styles.quickCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: 'rgba(37,211,102,0.35)',
+              marginTop: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              gap: 12,
+            },
+          ]}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: 'rgba(37,211,102,0.14)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MessageCircle size={22} color="#25D366" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[styles.quickCardTitle, { color: colors.text, marginTop: 0 }]}>
+                WhatsApp Cloud Operations
+              </Text>
+              <View
+                style={{
+                  backgroundColor: 'rgba(37,211,102,0.18)',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 6,
+                }}
+              >
+                <Text style={{ color: '#25D366', fontSize: 9, fontWeight: '800' }}>
+                  EN LÍNEA
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.quickCardSub, { color: colors.textSecondary, marginTop: 2 }]}>
+              Chats en vivo, envío de vouchers PDF y asistente IA con Gemini
+            </Text>
+          </View>
+          <ChevronRight size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       {/* Trend Chart Card */}
