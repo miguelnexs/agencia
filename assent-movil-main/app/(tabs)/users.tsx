@@ -376,15 +376,15 @@ export default function UsersScreen() {
                 style={[
                   styles.filterPill,
                   {
-                    backgroundColor: active ? colors.primary : colors.surfaceLight,
-                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primary : (isDark ? '#1E293B' : '#E2E8F0'),
+                    borderColor: active ? colors.primary : (isDark ? '#334155' : '#CBD5E1'),
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.filterPillText,
-                    { color: active ? '#FFF' : colors.textSecondary },
+                    { color: active ? '#FFFFFF' : (isDark ? '#F1F5F9' : '#0F172A') },
                   ]}
                 >
                   {f.label}
@@ -516,8 +516,8 @@ export default function UsersScreen() {
                           style={[
                             styles.permChip,
                             {
-                              backgroundColor: enabled ? p.activeColor : colors.card,
-                              borderColor: enabled ? p.activeColor : colors.border,
+                              backgroundColor: enabled ? p.activeColor : (isDark ? '#1E293B' : '#E2E8F0'),
+                              borderColor: enabled ? p.activeColor : (isDark ? '#334155' : '#CBD5E1'),
                             },
                           ]}
                         >
@@ -525,7 +525,7 @@ export default function UsersScreen() {
                             style={{
                               fontSize: 11,
                               fontWeight: '800',
-                              color: enabled ? '#FFF' : colors.textSecondary,
+                              color: enabled ? '#FFFFFF' : (isDark ? '#F1F5F9' : '#0F172A'),
                             }}
                           >
                             {p.label}: {enabled ? 'SÍ' : 'NO'}
@@ -543,13 +543,13 @@ export default function UsersScreen() {
                     style={[
                       styles.actionBtn,
                       {
-                        backgroundColor: 'rgba(56,189,248,0.14)',
-                        borderColor: 'rgba(56,189,248,0.35)',
+                        backgroundColor: '#0284C7',
+                        borderColor: '#0284C7',
                       },
                     ]}
                   >
-                    <FontAwesome5 name="sliders-h" size={12} color={colors.secondary} />
-                    <Text style={[styles.actionBtnText, { color: colors.secondary }]}>
+                    <FontAwesome5 name="sliders-h" size={12} color="#FFFFFF" />
+                    <Text style={[styles.actionBtnText, { color: '#FFFFFF', fontWeight: '800' }]}>
                       Configurar Perfil y Permisos
                     </Text>
                   </TouchableOpacity>
@@ -559,12 +559,12 @@ export default function UsersScreen() {
                     style={[
                       styles.actionBtn,
                       {
-                        backgroundColor: 'rgba(244,63,94,0.14)',
-                        borderColor: 'rgba(244,63,94,0.35)',
+                        backgroundColor: colors.error,
+                        borderColor: colors.error,
                       },
                     ]}
                   >
-                    <FontAwesome5 name="trash" size={12} color={colors.error} />
+                    <FontAwesome5 name="trash" size={12} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               </View>

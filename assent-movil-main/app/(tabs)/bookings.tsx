@@ -18,7 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { API_URL, DOWNLOAD_BASE_URL } from '../../constants/Config';
+import { API_URL } from '../../constants/Config';
 
 const apiBase = API_URL;
 const CURRENCIES = ['EUR', 'USD', 'COP', 'GBP', 'MXN', 'ARS', 'CLP', 'PEN', 'BRL'];
@@ -261,10 +261,10 @@ export default function BookingsScreen() {
     }
   };
 
-  const openPublicDownloadPage = (code?: string) => {
+  const openReceiptDirectDownload = (code?: string) => {
     if (!code) return;
-    const base = DOWNLOAD_BASE_URL.endsWith('/') ? DOWNLOAD_BASE_URL.slice(0, -1) : DOWNLOAD_BASE_URL;
-    const downloadUrl = `${base}/download/${encodeURIComponent(code)}`;
+    const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+    const downloadUrl = `${base}/users/api/whatsapp/receipt/${encodeURIComponent(code)}/`;
     Linking.openURL(downloadUrl).catch(() => {});
   };
 
@@ -411,20 +411,20 @@ export default function BookingsScreen() {
                 style={[
                   styles.filterPill,
                   {
-                    backgroundColor: active ? colors.primary : colors.surfaceLight,
-                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primary : (isDark ? '#1E293B' : '#E2E8F0'),
+                    borderColor: active ? colors.primary : (isDark ? '#334155' : '#CBD5E1'),
                   },
                 ]}
               >
                 <FontAwesome5
                   name={ord.icon as any}
                   size={10}
-                  color={active ? '#FFF' : colors.textSecondary}
+                  color={active ? '#FFFFFF' : (isDark ? '#F1F5F9' : '#0F172A')}
                 />
                 <Text
                   style={[
                     styles.filterPillText,
-                    { color: active ? '#FFF' : colors.textSecondary },
+                    { color: active ? '#FFFFFF' : (isDark ? '#F1F5F9' : '#0F172A') },
                   ]}
                 >
                   {ord.label}
@@ -572,13 +572,13 @@ export default function BookingsScreen() {
                       style={[
                         styles.actionBtn,
                         {
-                          backgroundColor: 'rgba(56,189,248,0.14)',
-                          borderColor: 'rgba(56,189,248,0.35)',
+                          backgroundColor: '#0284C7',
+                          borderColor: '#0284C7',
                         },
                       ]}
                     >
-                      <FontAwesome5 name="file-pdf" size={12} color={colors.secondary} />
-                      <Text style={[styles.actionBtnText, { color: colors.secondary }]}>
+                      <FontAwesome5 name="file-pdf" size={12} color="#FFFFFF" />
+                      <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>
                         PDF / Ver
                       </Text>
                     </TouchableOpacity>
@@ -589,13 +589,13 @@ export default function BookingsScreen() {
                         style={[
                           styles.actionBtn,
                           {
-                            backgroundColor: 'rgba(20,184,166,0.14)',
-                            borderColor: 'rgba(20,184,166,0.35)',
+                            backgroundColor: colors.primary,
+                            borderColor: colors.primary,
                           },
                         ]}
                       >
-                        <FontAwesome5 name="edit" size={12} color={colors.primary} />
-                        <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+                        <FontAwesome5 name="edit" size={12} color="#FFFFFF" />
+                        <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>
                           Editar
                         </Text>
                       </TouchableOpacity>
@@ -607,12 +607,12 @@ export default function BookingsScreen() {
                         style={[
                           styles.actionBtn,
                           {
-                            backgroundColor: 'rgba(244,63,94,0.14)',
-                            borderColor: 'rgba(244,63,94,0.35)',
+                            backgroundColor: colors.error,
+                            borderColor: colors.error,
                           },
                         ]}
                       >
-                        <FontAwesome5 name="trash" size={12} color={colors.error} />
+                        <FontAwesome5 name="trash" size={12} color="#FFFFFF" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -654,11 +654,14 @@ export default function BookingsScreen() {
             }}
             style={[
               styles.pageBtn,
-              { backgroundColor: colors.surfaceLight, borderColor: colors.border },
-              page <= 1 && { opacity: 0.4 },
+              {
+                backgroundColor: isDark ? '#1E293B' : '#E2E8F0',
+                borderColor: isDark ? '#334155' : '#CBD5E1',
+              },
+              page <= 1 && { opacity: 0.35 },
             ]}
           >
-            <Text style={[styles.pageBtnText, { color: colors.text }]}>Anterior</Text>
+            <Text style={[styles.pageBtnText, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>Anterior</Text>
           </TouchableOpacity>
 
           <Text style={[styles.pageCounter, { color: colors.text }]}>
@@ -674,11 +677,14 @@ export default function BookingsScreen() {
             }}
             style={[
               styles.pageBtn,
-              { backgroundColor: colors.surfaceLight, borderColor: colors.border },
-              page >= totalPages && { opacity: 0.4 },
+              {
+                backgroundColor: isDark ? '#1E293B' : '#E2E8F0',
+                borderColor: isDark ? '#334155' : '#CBD5E1',
+              },
+              page >= totalPages && { opacity: 0.35 },
             ]}
           >
-            <Text style={[styles.pageBtnText, { color: colors.text }]}>Siguiente</Text>
+            <Text style={[styles.pageBtnText, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>Siguiente</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -795,18 +801,18 @@ export default function BookingsScreen() {
                     </View>
                   </View>
 
-                  {/* Portal Download CTA */}
+                  {/* Direct PDF Downloads */}
                   <View
                     style={[
                       styles.detailSection,
                       {
-                        backgroundColor: 'rgba(20,184,166,0.1)',
-                        borderColor: 'rgba(20,184,166,0.35)',
+                        backgroundColor: isDark ? '#131F38' : '#F1F5F9',
+                        borderColor: colors.border,
                       },
                     ]}
                   >
                     <Text style={[styles.detailSectionTitle, { color: colors.primary }]}>
-                      DESCARGA DE RECIBO Y RESERVA OFICIAL (PDF)
+                      DESCARGA DIRECTA DE DOCUMENTOS OFICIALES (PDF)
                     </Text>
                     <Text
                       style={{
@@ -816,27 +822,27 @@ export default function BookingsScreen() {
                         lineHeight: 18,
                       }}
                     >
-                      Descarga directamente los comprobantes oficiales desde el servidor o previsualízalos en formato A4:
+                      Descarga directamente en tu dispositivo los PDFs oficiales emitidos por el sistema:
                     </Text>
-                    
-                    <View style={{ gap: 8 }}>
+
+                    <View style={{ gap: 10 }}>
                       <TouchableOpacity
-                        onPress={() => openVoucherDirectDownload(selectedBooking.code)}
-                        style={[styles.primaryModalBtn, { backgroundColor: '#0D9488' }]}
+                        onPress={() => openReceiptDirectDownload(selectedBooking.code)}
+                        style={[styles.primaryModalBtn, { backgroundColor: '#059669', borderColor: '#059669' }]}
                       >
-                        <FontAwesome5 name="file-pdf" size={14} color="#FFF" />
+                        <FontAwesome5 name="receipt" size={14} color="#FFF" />
                         <Text style={styles.primaryModalBtnText}>
-                          Descargar Voucher Oficial PDF
+                          Descargar Recibo Oficial (PDF)
                         </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => openPublicDownloadPage(selectedBooking.code)}
-                        style={[styles.primaryModalBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => openVoucherDirectDownload(selectedBooking.code)}
+                        style={[styles.primaryModalBtn, { backgroundColor: '#0284C7', borderColor: '#0284C7' }]}
                       >
-                        <FontAwesome5 name="external-link-alt" size={13} color="#FFF" />
+                        <FontAwesome5 name="file-pdf" size={14} color="#FFF" />
                         <Text style={styles.primaryModalBtnText}>
-                          Ver Centro A4 (Recibo & Reserva)
+                          Descargar Reserva / Voucher (PDF)
                         </Text>
                       </TouchableOpacity>
                     </View>

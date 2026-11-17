@@ -14,7 +14,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .models import WhatsAppConfig, WhatsAppMessage, Booking
-from .voucher_generator import generate_voucher_pdf_bytes
+from .voucher_generator import generate_voucher_pdf_bytes, generate_receipt_pdf_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -438,6 +438,26 @@ class WhatsAppBookingVoucherPDFView(APIView):
             return response
         except Exception as e:
             logger.error(f"Error generando voucher PDF para {code}: {e}")
+            return HttpResponse(f"Error generando PDF: {e}", status=500)
+
+
+class WhatsAppBookingReceiptPDFView(APIView):
+    """Genera y descarga en vivo el PDF oficial del Recibo de Pago de una reserva."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, code):
+        booking = Booking.objects.filter(code__iexact=code.strip()).first()
+        if not booking:
+            return HttpResponse("Reserva no encontrada", status=404)
+
+        try:
+            pdf_bytes = generate_receipt_pdf_bytes(booking)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="Recibo_{booking.code}.pdf"'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return response
+        except Exception as e:
+            logger.error(f"Error generando recibo PDF para {code}: {e}")
             return HttpResponse(f"Error generando PDF: {e}", status=500)
 
 
