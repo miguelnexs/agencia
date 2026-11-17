@@ -268,6 +268,13 @@ export default function BookingsScreen() {
     Linking.openURL(downloadUrl).catch(() => {});
   };
 
+  const openVoucherDirectDownload = (code?: string) => {
+    if (!code) return;
+    const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+    const downloadUrl = `${base}/users/api/whatsapp/voucher/${encodeURIComponent(code)}/`;
+    Linking.openURL(downloadUrl).catch(() => {});
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / (pageSize || 1)));
 
   return (
@@ -809,18 +816,30 @@ export default function BookingsScreen() {
                         lineHeight: 18,
                       }}
                     >
-                      Abre el visor móvil oficial para previsualizar en tamaño A4 y descargar
-                      tanto el Comprobante de Pago como el Documento de Reserva con QR.
+                      Descarga directamente los comprobantes oficiales desde el servidor o previsualízalos en formato A4:
                     </Text>
-                    <TouchableOpacity
-                      onPress={() => openPublicDownloadPage(selectedBooking.code)}
-                      style={[styles.primaryModalBtn, { backgroundColor: colors.primary }]}
-                    >
-                      <FontAwesome5 name="download" size={14} color="#FFF" />
-                      <Text style={styles.primaryModalBtnText}>
-                        Abrir Centro de Descarga PDF (#{selectedBooking.code})
-                      </Text>
-                    </TouchableOpacity>
+                    
+                    <View style={{ gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => openVoucherDirectDownload(selectedBooking.code)}
+                        style={[styles.primaryModalBtn, { backgroundColor: '#0D9488' }]}
+                      >
+                        <FontAwesome5 name="file-pdf" size={14} color="#FFF" />
+                        <Text style={styles.primaryModalBtnText}>
+                          Descargar Voucher Oficial PDF
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => openPublicDownloadPage(selectedBooking.code)}
+                        style={[styles.primaryModalBtn, { backgroundColor: colors.primary }]}
+                      >
+                        <FontAwesome5 name="external-link-alt" size={13} color="#FFF" />
+                        <Text style={styles.primaryModalBtnText}>
+                          Ver Centro A4 (Recibo & Reserva)
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </ScrollView>
               </>
