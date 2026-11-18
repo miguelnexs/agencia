@@ -187,7 +187,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const customLogo = await resolveBookingLogo(b);
     
     // Generate QR
-    const qrUrlText = `${window.location.origin}/download/${b.code || b.id || ''}`;
+    const qrUrlText = `https://vueloaseguro.es/download/${b.code || b.id || ''}`;
     let qrSrc = null;
     try {
       qrSrc = await QRCode.toDataURL(qrUrlText, { width: 140, margin: 1 });
@@ -299,7 +299,7 @@ const Bookings = ({ token, apiBase, role, permissions, setView, onEdit }: any) =
     const total = typeof nights === 'number' ? subtotal * nights : subtotal;
 
     // Generate QR
-    const qrUrlText = `${window.location.origin}/download/${b.code || b.id || ''}`;
+    const qrUrlText = `https://vueloaseguro.es/download/${b.code || b.id || ''}`;
     let qrSrc = null;
     try {
       qrSrc = await QRCode.toDataURL(qrUrlText, { width: 120, margin: 1 });
