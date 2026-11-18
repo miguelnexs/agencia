@@ -1099,7 +1099,7 @@ const Dashboard = ({
           <AeroLogo size="md" />
           <div>
             <div className="font-black text-base tracking-tight text-theme-text leading-none">
-              Vuelo<span className="text-teal-500">Seguro</span>
+              Vuelo<span className="text-teal-500">Aseguro</span>
             </div>
             <span className="text-[11px] font-semibold text-teal-500 uppercase tracking-wider">
               ✈ Flight & Hotel Suite
@@ -1215,7 +1215,7 @@ const Dashboard = ({
                 <div className="flex items-center justify-between pb-4 mb-4 border-b border-theme-border">
                   <div className="flex items-center gap-2.5">
                     <AeroLogo size="sm" />
-                    <span className="font-black text-base text-theme-text">VueloSeguro</span>
+                    <span className="font-black text-base text-theme-text">VueloAseguro</span>
                   </div>
                   <button onClick={() => setMobileOpen(false)} className="p-1.5 text-theme-textMuted">
                     <Icon name="cancel" className="w-5 h-5" />

@@ -868,7 +868,7 @@ export default function UsersScreen() {
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 18 }}>
               El usuario perderá inmediatamente el acceso al sistema operativo de
-              VueloSeguro.
+              VueloAseguro.
             </Text>
             <View style={styles.modalFooterBtns}>
               <TouchableOpacity

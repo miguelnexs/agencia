@@ -28,7 +28,7 @@ const TitleBar = () => {
       <div className="flex items-center px-3 gap-2 pointer-events-none">
         <AeroLogo size="xs" animated={false} />
         <span className="text-[10px] font-bold text-theme-textSecondary uppercase tracking-widest opacity-80">
-          VueloSeguro • Flight & Hotel Suite
+          VueloAseguro • Flight & Hotel Suite
         </span>
       </div>
 

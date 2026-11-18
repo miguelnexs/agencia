@@ -360,7 +360,7 @@ const App = () => {
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}
               >
-                VueloSeguro • Control Central
+                VueloAseguro • Control Central
               </span>
               <span className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 Sistema de Reservas Hoteleras y Operaciones de Viaje
@@ -731,7 +731,7 @@ const App = () => {
             isDark ? 'text-slate-500' : 'text-slate-500'
           }`}
         >
-          <span>© {new Date().getFullYear()} VueloSeguro • Plataforma de Gestión de Reservas</span>
+          <span>© {new Date().getFullYear()} VueloAseguro • Plataforma de Gestión de Reservas</span>
           <span>Modo actual: {isDark ? 'Oscuro (Nocturno)' : 'Claro (Diurno)'}</span>
         </footer>
       </div>

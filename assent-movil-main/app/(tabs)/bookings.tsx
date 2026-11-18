@@ -283,7 +283,7 @@ export default function BookingsScreen() {
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerEyebrow, { color: colors.primary }]}>
-            VUELOSEGURO • OPERACIONES
+            VUELOASEGURO • OPERACIONES
           </Text>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Reservas Activas</Text>
         </View>
@@ -486,7 +486,7 @@ export default function BookingsScreen() {
                         style={[styles.hotelTitle, { color: colors.text }]}
                         numberOfLines={1}
                       >
-                        {item.hotel_name || 'Alojamiento VueloSeguro'}
+                        {item.hotel_name || 'Alojamiento VueloAseguro'}
                       </Text>
                       <Text
                         style={[styles.hotelSub, { color: colors.textSecondary }]}

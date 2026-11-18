@@ -17,7 +17,7 @@ const sizeMap = {
 
 /**
  * Custom-designed Aviation & Hospitality Emblem ("SkyCrest")
- * Created specifically for VueloSeguro.
+ * Created specifically for VueloAseguro.
  */
 export const AeroLogo: React.FC<AeroLogoProps> = ({
   size = 'md',
@@ -161,7 +161,7 @@ export const AERO_LOGO_PDF_DATA_URI =
       <path d="M44 24 C47.5 24 50 24.8 51.5 25.5 C50 26.2 47.5 27 44 27 L30 27 L19 43 L14.5 43 L21 27 L9.5 27 L4.5 33.5 L2 33.5 L5.5 25.5 L2 17.5 L4.5 17.5 L9.5 24 L21 24 L14.5 8 L19 8 L30 24 Z" fill="#ffffff"/>
     </g>
   </g>
-  <text x="104" y="46" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="900" fill="#0f172a" letter-spacing="0.5">VUELO<tspan fill="#0d9488">SEGURO</tspan></text>
+  <text x="104" y="46" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="900" fill="#0f172a" letter-spacing="0.5">VUELO<tspan fill="#0d9488">ASEGURO</tspan></text>
   <text x="105" y="68" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#0284c7" letter-spacing="2.2">FLIGHT &amp; HOTEL OPERATIONS</text>
 </svg>
 `);

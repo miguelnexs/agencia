@@ -1,6 +1,6 @@
-appId: com.vueloseguro.app
-productName: VueloSeguro
-copyright: Copyright © 2026 VueloSeguro
+appId: com.vueloaseguro.app
+productName: VueloAseguro
+copyright: Copyright © 2026 VueloAseguro
 directories:
   output: dist-electron
   buildResources: resources
@@ -34,7 +34,7 @@ win:
         - x64
   requestedExecutionLevel: asInvoker
   artifactName: "${productName}-Installer-${version}.${ext}"
-  publisherName: VueloSeguro
+  publisherName: VueloAseguro
   verifyUpdateCodeSignature: false
   sign: false
   signDlls: false
@@ -46,7 +46,7 @@ nsis:
   allowElevation: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: VueloSeguro
+  shortcutName: VueloAseguro
   deleteAppDataOnUninstall: false
   installerLanguages:
     - es-ES
@@ -68,8 +68,8 @@ linux:
   category: Office
   artifactName: "${productName}-${version}.${ext}"
   desktop:
-    Name: VueloSeguro
-    Comment: Sistema de gestión VueloSeguro
+    Name: VueloAseguro
+    Comment: Sistema de gestión VueloAseguro
     Keywords: gestion;viajes;empleados
     Categories: Office;Business;
     StartupNotify: true

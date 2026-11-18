@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "VueloSeguro",
-    "slug": "vueloseguro",
-    "scheme": "vueloseguro",
+    "name": "VueloAseguro",
+    "slug": "vueloaseguro",
+    "scheme": "vueloaseguro",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.miguelnexs.vueloseguro",
+      "bundleIdentifier": "com.miguelnexs.vueloaseguro",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -30,7 +30,7 @@
       "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.miguelnexs.vueloseguro"
+      "package": "com.miguelnexs.vueloaseguro"
     },
     "web": {
       "favicon": "./assets/favicon.png"

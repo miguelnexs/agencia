@@ -208,7 +208,7 @@ export default function LoginScreen() {
             <AeroShieldSvg size={42} />
             <View>
               <Text style={[styles.topBrandTitle, { color: colors.text }]}>
-                VUELO<Text style={{ color: '#14B8A6' }}>SEGURO</Text>
+                VUELO<Text style={{ color: '#14B8A6' }}>ASEGURO</Text>
               </Text>
               <Text style={[styles.topBrandSub, { color: colors.textSecondary }]}>
                 CONTROL CENTRAL • MULTI-EMPRESA
@@ -494,7 +494,7 @@ export default function LoginScreen() {
 
         {/* Footer */}
         <Text style={[styles.footerCopy, { color: colors.textMuted }]}>
-          © {new Date().getFullYear()} VueloSeguro • Plataforma Multi-Empresa de Reservas y WhatsApp
+          © {new Date().getFullYear()} VueloAseguro • Plataforma Multi-Empresa de Reservas y WhatsApp
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
