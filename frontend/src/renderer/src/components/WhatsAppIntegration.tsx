@@ -27,11 +27,11 @@ interface WhatsAppIntegrationProps {
 
 const QUICK_TEMPLATES = [
   { label: '📄 Solicitar Voucher', text: 'Quiero mi voucher de reserva por favor.' },
-  { label: '👋 Saludo Inicial', text: '¡Hola! Te damos la bienvenida a AeroAgencia ✈️. ¿En qué podemos ayudarte el día de hoy?' },
+  { label: '👋 Saludo Inicial', text: '¡Hola! Te damos la bienvenida a nuestra Central de Reservas y Viajes ✈️. ¿En qué podemos ayudarte el día de hoy?' },
   { label: '🎫 Consulta de Reserva', text: 'Por favor facilítanos el código de tu reserva (ejemplo: AEROA1) para brindarte los detalles de inmediato.' },
   { label: '📄 Solicitud de Documentos', text: 'Para completar el registro de tu viaje, requerimos una foto legible de tu cédula o pasaporte.' },
   { label: '👨‍💼 Atención Asesor', text: 'Un asesor comercial especializado está revisando tu caso y te responderá en unos minutos.' },
-  { label: '💳 Confirmación Pago', text: 'Hemos verificado el pago de tu reserva. En breve recibirás tu voucher y confirmación.' },
+  { label: '💳 Confirmación Pago', text: 'Hemos verificado el pago de tu reserva. En breve recibirás tu voucher y recibo oficial.' },
 ];
 
 export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token, apiBase }) => {
@@ -225,33 +225,33 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
     }
   };
 
-  // Enviar Voucher PDF manual desde el panel
+  // Enviar Voucher o Recibo PDF manual desde el panel
   const [sendingVoucher, setSendingVoucher] = useState(false);
-  const handleSendVoucher = async () => {
+  const handleSendVoucher = async (docType: 'voucher' | 'receipt' | 'both' = 'both') => {
     if (!selectedPhone || sendingVoucher) return;
-    const code = prompt('Ingresa el código de reserva para generar y enviar el Voucher PDF (ejemplo: AEROA1):', 'AEROA1');
+    const code = prompt('Ingresa el código de reserva para generar y enviar los PDFs oficiales (ejemplo: AEROA1):', 'AEROA1');
     if (!code) return;
 
     setSendingVoucher(true);
-    setStatusNotice({ type: 'info', text: `⏳ Generando voucher PDF para reserva ${code.trim().toUpperCase()}...` });
+    setStatusNotice({ type: 'info', text: `⏳ Generando documentos PDF para reserva ${code.trim().toUpperCase()}...` });
 
     try {
       const res = await fetch(`${apiBase}/users/api/whatsapp/messages/${selectedPhone}/send-voucher/`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({ booking_code: code.trim().toUpperCase() }),
+        body: JSON.stringify({ booking_code: code.trim().toUpperCase(), doc_type: docType }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setStatusNotice({ type: 'success', text: `✅ Voucher PDF oficial enviado a +${selectedPhone}` });
+        setStatusNotice({ type: 'success', text: `✅ PDF oficial enviado a +${selectedPhone}` });
         loadMessages(selectedPhone);
         loadConversations();
       } else {
-        setStatusNotice({ type: 'error', text: `❌ ${data.detail || 'Error al emitir voucher'}` });
+        setStatusNotice({ type: 'error', text: `❌ ${data.detail || 'Error al emitir PDF'}` });
       }
     } catch (e) {
       console.error(e);
-      setStatusNotice({ type: 'error', text: '❌ Error de conexión al enviar voucher' });
+      setStatusNotice({ type: 'error', text: '❌ Error de conexión al enviar PDF' });
     } finally {
       setSendingVoucher(false);
       setTimeout(() => setStatusNotice(null), 5000);
@@ -315,16 +315,16 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-theme-text">WhatsApp Business Suite</h2>
+                <h2 className="text-xl font-black text-theme-text">WhatsApp Business Suite • Multi-Empresa</h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 uppercase tracking-widest flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   Oficial Meta API
                 </span>
               </div>
               <p className="text-xs text-theme-textSecondary mt-0.5 flex items-center gap-2">
-                <span>Número Conectado: <strong className="text-emerald-400 font-mono">+57 324 5362112</strong></span>
+                <span>Central Multi-Empresa Activa</span>
                 <span>•</span>
-                <span>Respuesta Automática de Reservas Activa</span>
+                <span>Habilitado para Administradores y Empleados</span>
               </p>
             </div>
           </div>
@@ -474,17 +474,24 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={handleSendVoucher}
+                      onClick={() => handleSendVoucher('voucher')}
                       disabled={sendingVoucher}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
                       title="Genera y envía el PDF oficial del Voucher al cliente por WhatsApp"
                     >
-                      <span>📄</span>
-                      <span>{sendingVoucher ? 'Generando PDF...' : 'Enviar Voucher PDF'}</span>
+                      <span>✈️</span>
+                      <span>{sendingVoucher ? 'Enviando...' : 'Enviar Voucher PDF'}</span>
                     </button>
-                    <span className="text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
-                      🤖 IA Activa
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSendVoucher('receipt')}
+                      disabled={sendingVoucher}
+                      className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                      title="Genera y envía el PDF oficial del Recibo de Pago al cliente por WhatsApp"
+                    >
+                      <span>🧾</span>
+                      <span>{sendingVoucher ? 'Enviando...' : 'Enviar Recibo PDF'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -514,7 +521,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                                 <span>🤖 AeroAgencia IA</span>
                               </div>
                             )}
-                            {m.text.includes('[DOCUMENTO ADJUNTO') || m.text.includes('[VOUCHER PDF ENVIADO') ? (
+                            {m.text.includes('[DOCUMENTO ADJUNTO') || m.text.includes('[VOUCHER PDF ENVIADO') || m.text.includes('[RECIBO PDF ENVIADO') ? (
                               <div className="space-y-2">
                                 <div className="p-2.5 rounded-xl bg-black/20 border border-white/20 flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-2">
@@ -522,22 +529,24 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                                       PDF
                                     </div>
                                     <div>
-                                      <div className="font-bold text-xs text-white">Voucher Oficial de Servicio</div>
-                                      <div className="text-[9px] text-emerald-200">Comprobante emitido con IA</div>
+                                      <div className="font-bold text-xs text-white">Documento Oficial en PDF</div>
+                                      <div className="text-[9px] text-emerald-200">Voucher / Recibo de Reserva</div>
                                     </div>
                                   </div>
                                   {(() => {
-                                    const match = m.text.match(/Voucher_([A-Z0-9]+)\.pdf/i) || m.text.match(/\b([A-Z0-9]{5,7})\b/i);
+                                    const isReceipt = m.text.toLowerCase().includes('recibo_');
+                                    const match = m.text.match(/(?:Voucher|Recibo)_([A-Z0-9]+)\.pdf/i) || m.text.match(/\b([A-Z0-9]{5,7})\b/i);
                                     const vCode = match ? match[1] : '';
+                                    const endpoint = isReceipt ? 'receipt' : 'voucher';
                                     return vCode ? (
                                       <a
-                                        href={`https://globetrek.cloud/users/api/whatsapp/voucher/${vCode}/`}
+                                        href={`${apiBase}/users/api/whatsapp/${endpoint}/${vCode}/`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold transition flex items-center gap-1"
                                       >
-                                        <span>👁</span>
-                                        <span>Ver PDF</span>
+                                        <span>⬇</span>
+                                        <span>Descargar PDF</span>
                                       </a>
                                     ) : null;
                                   })()}

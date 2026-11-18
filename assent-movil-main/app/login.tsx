@@ -11,6 +11,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, {
+  Circle,
+  Path,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  G,
+} from 'react-native-svg';
 import {
   Plane,
   ShieldCheck,
@@ -20,8 +28,10 @@ import {
   EyeOff,
   Sun,
   Moon,
-  ArrowRight,
   AlertCircle,
+  MessageCircle,
+  FileText,
+  Zap,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -29,12 +39,47 @@ import { API_URL } from '../constants/Config';
 
 const apiBase = API_URL;
 
+const AeroShieldSvg = ({ size = 48 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+    <Defs>
+      <SvgLinearGradient id="shieldBorder" x1="12" y1="6" x2="108" y2="114" gradientUnits="userSpaceOnUse">
+        <Stop offset="0%" stopColor="#2DD4BF" />
+        <Stop offset="50%" stopColor="#0EA5E9" />
+        <Stop offset="100%" stopColor="#0284C7" />
+      </SvgLinearGradient>
+      <SvgLinearGradient id="shieldCore" x1="20" y1="12" x2="100" y2="108" gradientUnits="userSpaceOnUse">
+        <Stop offset="0%" stopColor="#051329" />
+        <Stop offset="55%" stopColor="#083B4C" />
+        <Stop offset="100%" stopColor="#0D9488" />
+      </SvgLinearGradient>
+    </Defs>
+    <Path
+      d="M60 5 L106 25 C106 66 95 96 60 115 C25 96 14 66 14 25 Z"
+      fill="url(#shieldBorder)"
+    />
+    <Path
+      d="M60 11 L100 28.5 C100 64 90 91 60 108.5 C30 91 20 64 20 28.5 Z"
+      fill="url(#shieldCore)"
+    />
+    <Circle cx="46" cy="27" r="3" fill="#38BDF8" />
+    <Circle cx="60" cy="24" r="4.2" fill="#2DD4BF" />
+    <Circle cx="74" cy="27" r="3" fill="#38BDF8" />
+    <G transform="translate(62, 62) rotate(-32)">
+      <Path
+        d="M22 0 C22 2.2 19.5 3.5 16 3.5 L3 3.5 L-7 21 L-12 21 L-6 3.5 L-18 3.5 L-23 10.5 L-26.5 10.5 L-23 0 L-26.5 -10.5 L-23 -10.5 L-18 -3.5 L-6 -3.5 L-12 -21 L-7 -21 L3 -3.5 L16 -3.5 C19.5 -3.5 22 -2.2 22 0 Z"
+        fill="#FFFFFF"
+      />
+    </G>
+  </Svg>
+);
+
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const { colors, isDark, toggleTheme } = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +117,9 @@ export default function LoginScreen() {
 
       let userRole = data.role || 'employee';
       let userName = username.trim();
-      let userPermissions = null;
+      let userPermissions: any = {
+        can_use_whatsapp: true,
+      };
 
       try {
         const meRes = await fetch(`${apiBase}/users/api/auth/me/`, {
@@ -85,7 +132,12 @@ export default function LoginScreen() {
           const meData = await meRes.json();
           if (meData.role) userRole = meData.role;
           if (meData.username) userName = meData.username;
-          if (meData.permissions) userPermissions = meData.permissions;
+          if (meData.permissions) {
+            userPermissions = {
+              ...meData.permissions,
+              can_use_whatsapp: true,
+            };
+          }
         }
       } catch {
         // continue with login role
@@ -107,142 +159,263 @@ export default function LoginScreen() {
       <LinearGradient
         colors={
           isDark
-            ? ['#050914', '#0B162C', '#050914']
+            ? ['#050914', '#081428', '#050914']
             : ['#EEF4FB', '#E0F2FE', '#F8FAFC']
         }
         style={StyleSheet.absoluteFill}
       />
 
+      {/* Radar & Flight Route Background SVG */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%" viewBox="0 0 420 820">
+          <Circle
+            cx="210"
+            cy="220"
+            r="140"
+            stroke={isDark ? 'rgba(56,189,248,0.09)' : 'rgba(2,132,199,0.12)'}
+            strokeWidth="1.5"
+            strokeDasharray="6 8"
+            fill="none"
+          />
+          <Circle
+            cx="210"
+            cy="220"
+            r="230"
+            stroke={isDark ? 'rgba(20,184,166,0.07)' : 'rgba(13,148,136,0.10)'}
+            strokeWidth="1.2"
+            fill="none"
+          />
+          <Path
+            d="M -20 380 C 110 310, 250 180, 440 90"
+            stroke={isDark ? 'rgba(20,184,166,0.22)' : 'rgba(13,148,136,0.25)'}
+            strokeWidth="2.2"
+            strokeDasharray="8 8"
+            fill="none"
+          />
+          <Circle cx="105" cy="295" r="4.5" fill="#14B8A6" />
+          <Circle cx="330" cy="145" r="4.5" fill="#38BDF8" />
+        </Svg>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Top bar with status badge & theme switch */}
+        {/* Top Control Bar */}
         <View style={styles.topBar}>
-          <View
-            style={[
-              styles.statusPill,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(16, 185, 129, 0.12)'
-                  : 'rgba(16, 185, 129, 0.15)',
-                borderColor: 'rgba(16, 185, 129, 0.35)',
-              },
-            ]}
-          >
-            <View style={styles.statusDot} />
-            <Text style={[styles.statusText, { color: colors.success }]}>
-              OPERACIONES EN LÍNEA
-            </Text>
+          <View style={styles.topBrandRow}>
+            <AeroShieldSvg size={42} />
+            <View>
+              <Text style={[styles.topBrandTitle, { color: colors.text }]}>
+                AERO<Text style={{ color: '#14B8A6' }}>AGENCIA</Text>
+              </Text>
+              <Text style={[styles.topBrandSub, { color: colors.textSecondary }]}>
+                CONTROL CENTRAL • MULTI-EMPRESA
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity
             onPress={toggleTheme}
             style={[
-              styles.themeBtn,
+              styles.themeToggleBtn,
               {
-                backgroundColor: colors.card,
+                backgroundColor: isDark ? '#131F38' : '#FFFFFF',
                 borderColor: colors.border,
               },
             ]}
           >
             {isDark ? (
-              <Sun size={18} color="#FBBF24" />
+              <>
+                <Sun size={15} color="#FBBF24" />
+                <Text style={[styles.themeToggleText, { color: '#FBBF24' }]}>
+                  Claro
+                </Text>
+              </>
             ) : (
-              <Moon size={18} color={colors.accent} />
+              <>
+                <Moon size={15} color="#0284C7" />
+                <Text style={[styles.themeToggleText, { color: '#0284C7' }]}>
+                  Oscuro
+                </Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Brand Header */}
-        <View style={styles.brandSection}>
-          <LinearGradient
-            colors={['#14B8A6', '#0284C7']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoShield}
-          >
-            <Plane size={30} color="#FFFFFF" />
-          </LinearGradient>
-          <Text style={[styles.brandName, { color: colors.text }]}>
-            AERO<Text style={{ color: colors.primary }}>AGENCIA</Text>
-          </Text>
-          <Text style={[styles.brandTagline, { color: colors.accent }]}>
-            FLIGHT & HOTEL OPERATIONS · MOBILE
-          </Text>
-        </View>
-
-        {/* Login Card */}
+        {/* Boarding-Pass Style Telemetry Card (Matching Desktop Login) */}
         <View
           style={[
-            styles.card,
+            styles.telemetryCard,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
+              backgroundColor: isDark ? 'rgba(11, 19, 36, 0.88)' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(56, 189, 248, 0.22)' : '#CBD5E1',
             },
           ]}
         >
-          <Text style={[styles.title, { color: colors.text }]}>
-            Acceso de Personal
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Ingresa tus credenciales operativas para gestionar reservas, PDFs y equipo.
-          </Text>
+          <View style={styles.telemetryHeader}>
+            <View>
+              <Text style={[styles.telemetryEyebrow, { color: colors.textMuted }]}>
+                RUTA DE OPERACIÓN ACTIVA
+              </Text>
+              <View style={styles.routeRow}>
+                <Text style={[styles.airportCode, { color: colors.text }]}>BOG</Text>
+                <View style={styles.routeLineBox}>
+                  <View style={[styles.routeDash, { backgroundColor: colors.primary }]} />
+                  <Plane size={15} color={colors.primary} />
+                  <View style={[styles.routeDash, { backgroundColor: colors.primary }]} />
+                </View>
+                <Text style={[styles.airportCode, { color: colors.text }]}>MAD</Text>
+              </View>
+            </View>
+
+            <View style={{ alignItems: 'flex-end' }}>
+              <View style={styles.liveBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveBadgeText}>MULTI-EMPRESA</Text>
+              </View>
+              <Text style={[styles.telemetrySub, { color: colors.textSecondary }]}>
+                Vouchers PDF + WhatsApp
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.pillarsRow}>
+            <View
+              style={[
+                styles.pillarBox,
+                { backgroundColor: isDark ? '#131F38' : '#F1F5F9' },
+              ]}
+            >
+              <Zap size={13} color="#14B8A6" />
+              <Text style={[styles.pillarLabel, { color: colors.textSecondary }]}>
+                Check-In
+              </Text>
+              <Text style={[styles.pillarVal, { color: '#14B8A6' }]}>
+                Instantáneo
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.pillarBox,
+                { backgroundColor: isDark ? '#131F38' : '#F1F5F9' },
+              ]}
+            >
+              <FileText size={13} color="#38BDF8" />
+              <Text style={[styles.pillarLabel, { color: colors.textSecondary }]}>
+                Documentos
+              </Text>
+              <Text style={[styles.pillarVal, { color: '#38BDF8' }]}>
+                Recibo & PDF
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.pillarBox,
+                { backgroundColor: isDark ? '#131F38' : '#F1F5F9' },
+              ]}
+            >
+              <MessageCircle size={13} color="#25D366" />
+              <Text style={[styles.pillarLabel, { color: colors.textSecondary }]}>
+                WhatsApp
+              </Text>
+              <Text style={[styles.pillarVal, { color: '#25D366' }]}>
+                Activo 24/7
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Main Login Boarding Card */}
+        <View
+          style={[
+            styles.loginCard,
+            {
+              backgroundColor: isDark ? '#0B1324' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#CBD5E1',
+            },
+          ]}
+        >
+          {/* Top Glowing Gradient Accent Bar */}
+          <LinearGradient
+            colors={['#14B8A6', '#10B981', '#0284C7']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.topGradientBar}
+          />
+
+          <View style={styles.cardHeaderRow}>
+            <AeroShieldSvg size={54} />
+            <View style={{ flex: 1 }}>
+              <View style={styles.boardingGateBadge}>
+                <Text style={styles.boardingGateText}>✈ PUERTA DE EMBARQUE</Text>
+              </View>
+              <Text style={[styles.loginTitle, { color: colors.text }]}>
+                Iniciar Sesión
+              </Text>
+              <Text style={[styles.loginSubtitle, { color: colors.textSecondary }]}>
+                Acceso para Empresas, Super Admin y Empleados
+              </Text>
+            </View>
+          </View>
 
           {error && (
-            <View style={styles.errorBox}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {error}
-              </Text>
+            <View style={styles.errorBanner}>
+              <AlertCircle size={16} color="#F43F5E" />
+              <Text style={styles.errorBannerText}>{error}</Text>
             </View>
           )}
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              USUARIO OPERATIVO
+          {/* Username Input */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              USUARIO CORPORATIVO O AGENTE
             </Text>
             <View
               style={[
-                styles.inputWrapper,
+                styles.inputBox,
                 {
-                  backgroundColor: colors.surfaceLight,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? '#060B16' : '#F8FAFC',
+                  borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#CBD5E1',
                 },
               ]}
             >
-              <User size={18} color={colors.primary} />
+              <User size={18} color="#14B8A6" />
               <TextInput
-                style={[styles.input, { color: colors.text }]}
+                style={[styles.textInput, { color: colors.text }]}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
-                placeholder="Ej. admin"
+                placeholder="Ej. miguel / agente"
                 placeholderTextColor={colors.textMuted}
               />
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              CLAVE DE ACCESO
+          {/* Password Input */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              CONTRASEÑA DE ACCESO
             </Text>
             <View
               style={[
-                styles.inputWrapper,
+                styles.inputBox,
                 {
-                  backgroundColor: colors.surfaceLight,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? '#060B16' : '#F8FAFC',
+                  borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#CBD5E1',
                 },
               ]}
             >
-              <Lock size={18} color={colors.primary} />
+              <Lock size={18} color="#14B8A6" />
               <TextInput
-                style={[styles.input, { color: colors.text }]}
+                style={[styles.textInput, { color: colors.text }]}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                placeholder="••••••••"
+                placeholder="••••••••••••"
                 placeholderTextColor={colors.textMuted}
               />
               <TouchableOpacity
@@ -258,36 +431,71 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          {/* Remember & SSL Row */}
+          <View style={styles.rememberRow}>
+            <TouchableOpacity
+              onPress={() => setRemember(!remember)}
+              style={styles.rememberToggle}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.switchTrack,
+                  {
+                    backgroundColor: remember
+                      ? '#14B8A6'
+                      : isDark
+                      ? '#1E293B'
+                      : '#CBD5E1',
+                     alignItems: remember ? 'flex-end' : 'flex-start',
+                  },
+                ]}
+              >
+                <View style={styles.switchThumb} />
+              </View>
+              <Text style={[styles.rememberLabel, { color: colors.textSecondary }]}>
+                Recordar sesión
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.sslBadge}>
+              <ShieldCheck size={14} color="#14B8A6" />
+              <Text style={styles.sslText}>Conexión segura</Text>
+            </View>
+          </View>
+
+          {/* Submit CTA Button */}
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
-            activeOpacity={0.88}
-            style={[styles.btnOuter, loading && { opacity: 0.65 }]}
+            activeOpacity={0.9}
+            style={[styles.submitOuter, loading && { opacity: 0.65 }]}
           >
             <LinearGradient
-              colors={['#14B8A6', '#0284C7']}
+              colors={['#14B8A6', '#10B981', '#0284C7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.btnGradient}
+              style={styles.submitGradient}
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text style={styles.submitText}>VERIFICANDO ACCESO...</Text>
+                </>
               ) : (
                 <>
-                  <Text style={styles.btnText}>INICIAR OPERACIONES</Text>
-                  <ArrowRight size={18} color="#FFFFFF" />
+                  <Text style={styles.submitText}>INGRESAR A CABINA</Text>
+                  <Plane size={17} color="#FFFFFF" />
                 </>
               )}
             </LinearGradient>
           </TouchableOpacity>
-
-          <View style={styles.securityFooter}>
-            <ShieldCheck size={15} color={colors.primary} />
-            <Text style={[styles.securityText, { color: colors.textSecondary }]}>
-              Sincronizado en tiempo real con Central AeroAgencia
-            </Text>
-          </View>
         </View>
+
+        {/* Footer */}
+        <Text style={[styles.footerCopy, { color: colors.textMuted }]}>
+          © {new Date().getFullYear()} AeroAgencia • Plataforma Multi-Empresa de Reservas y WhatsApp
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -300,159 +508,283 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
-    paddingTop: 48,
-    paddingBottom: 36,
+    paddingHorizontal: 18,
+    paddingTop: 42,
+    paddingBottom: 28,
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  statusPill: {
+  topBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    gap: 6,
+    gap: 10,
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
+  topBrandTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
-  statusText: {
-    fontSize: 10,
+  topBrandSub: {
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1,
+    marginTop: 1,
   },
-  themeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  themeToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  brandSection: {
-    alignItems: 'center',
-    marginBottom: 26,
-  },
-  logoShield: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#14B8A6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  brandName: {
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  brandTagline: {
+  themeToggleText: {
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 2,
+  },
+  telemetryCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 15,
+    marginBottom: 16,
+  },
+  telemetryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(20, 184, 166, 0.22)',
+  },
+  telemetryEyebrow: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginTop: 4,
   },
-  card: {
-    borderRadius: 24,
-    padding: 24,
+  airportCode: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  routeLineBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  routeDash: {
+    width: 18,
+    height: 2,
+    borderRadius: 1,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 6,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
   },
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 22,
+  liveBadgeText: {
+    color: '#10B981',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.6,
   },
-  errorBox: {
+  telemetrySub: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  pillarsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pillarBox: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    gap: 2,
+  },
+  pillarLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  pillarVal: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  loginCard: {
+    borderRadius: 26,
+    borderWidth: 1,
+    padding: 22,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  topGradientBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 5,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  boardingGateBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(20, 184, 166, 0.14)',
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  boardingGateText: {
+    color: '#14B8A6',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  loginTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  loginSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    backgroundColor: 'rgba(244, 63, 94, 0.14)',
+    borderColor: 'rgba(244, 63, 94, 0.35)',
     borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.3)',
+    borderRadius: 14,
     padding: 12,
-    borderRadius: 12,
     marginBottom: 16,
   },
-  errorText: {
+  errorBannerText: {
+    color: '#F43F5E',
     fontSize: 12,
     fontWeight: '700',
     flex: 1,
   },
-  inputGroup: {
-    marginBottom: 16,
+  fieldGroup: {
+    marginBottom: 15,
   },
-  label: {
-    fontSize: 11,
+  inputLabel: {
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 7,
   },
-  inputWrapper: {
+  inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 15,
     paddingHorizontal: 14,
     height: 50,
     gap: 10,
   },
-  input: {
+  textInput: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    height: '100%',
   },
-  btnOuter: {
-    marginTop: 10,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  btnGradient: {
-    height: 52,
+  rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+    marginBottom: 18,
+  },
+  rememberToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  btnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 14,
-    letterSpacing: 1,
+  switchTrack: {
+    width: 36,
+    height: 20,
+    borderRadius: 999,
+    padding: 2,
+    justifyContent: 'center',
   },
-  securityFooter: {
+  switchThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  rememberLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sslBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sslText: {
+    color: '#14B8A6',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  submitOuter: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  submitGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 18,
+    paddingVertical: 15,
+    gap: 10,
   },
-  securityText: {
+  submitText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  footerCopy: {
+    textAlign: 'center',
     fontSize: 11,
     fontWeight: '600',
+    marginTop: 18,
   },
 });

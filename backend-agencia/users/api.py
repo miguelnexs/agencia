@@ -158,6 +158,7 @@ def _get_user_permissions(user: User) -> dict:
             'can_edit_bookings': True,
             'can_delete_bookings': True,
             'can_manage_users': True,
+            'can_use_whatsapp': True,
         }
     try:
         p = user.profile
@@ -166,6 +167,7 @@ def _get_user_permissions(user: User) -> dict:
             'can_edit_bookings': bool(getattr(p, 'can_edit_bookings', False)),
             'can_delete_bookings': bool(getattr(p, 'can_delete_bookings', False)),
             'can_manage_users': bool(getattr(p, 'can_manage_users', False)),
+            'can_use_whatsapp': True,
         }
     except UserProfile.DoesNotExist:
         return {
@@ -173,6 +175,7 @@ def _get_user_permissions(user: User) -> dict:
             'can_edit_bookings': False,
             'can_delete_bookings': False,
             'can_manage_users': False,
+            'can_use_whatsapp': True,
         }
 
 
@@ -198,6 +201,7 @@ def _serialize_user(user: User):
         'can_edit_bookings': perms['can_edit_bookings'],
         'can_delete_bookings': perms['can_delete_bookings'],
         'can_manage_users': perms['can_manage_users'],
+        'can_use_whatsapp': perms['can_use_whatsapp'],
         'email': user.email,
         'first_name': user.first_name,
         'last_name': user.last_name,

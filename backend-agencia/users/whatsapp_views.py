@@ -200,18 +200,18 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
         if booking:
             nights = max((booking.check_out_date - booking.check_in_date).days, 1) if (booking.check_out_date and booking.check_in_date) else 1
             reply_text = (
-                f"✈️ *¡Con mucho gusto {client_name}!* Aquí tienes el *Voucher oficial en PDF* de tu reserva *{booking.code}*.\n\n"
+                f"✈️ *¡Con mucho gusto {client_name}!* Aquí tienes el *Voucher y Comprobante oficial en PDF* de tu reserva *{booking.code}*.\n\n"
                 f"📋 *Resumen de tu Viaje:*\n"
                 f"• *Pasajero:* {booking.first_name}\n"
                 f"• *Alojamiento:* {booking.hotel_name}\n"
-                f"• *Destino:* {booking.location or 'Colombia'}\n"
+                f"• *Destino:* {booking.location or 'Confirmado'}\n"
                 f"• *Fechas:* {booking.check_in_date} al {booking.check_out_date} ({nights} noches)\n\n"
-                f"Acabamos de adjuntar el documento PDF oficial aquí arriba para que lo descargues o lo lleves en tu teléfono al hacer el Check-in. ¡Feliz viaje con AeroAgencia!"
+                f"Acabamos de adjuntar el documento PDF oficial aquí arriba para que lo descargues o lo lleves en tu teléfono al hacer el Check-in. ¡Feliz viaje!"
             )
             return reply_text, booking
         else:
             reply_text = (
-                f"✈️ *¡Hola {client_name}!* Con mucho gusto te emitimos y enviamos tu Voucher oficial en formato PDF.\n\n"
+                f"✈️ *¡Hola {client_name}!* Con mucho gusto te emitimos y enviamos tu Voucher o Recibo oficial en formato PDF.\n\n"
                 f"Por favor facilítanos el *código de tu reserva* (por ejemplo: *AEROA1*) para generarlo de inmediato."
             )
             return reply_text, None
@@ -220,9 +220,9 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
     if booking:
         nights = max((booking.check_out_date - booking.check_in_date).days, 1) if (booking.check_out_date and booking.check_in_date) else 1
         total = float(booking.room_value or 0) * nights * max(booking.rooms_count or 1, 1)
-        curr = booking.currency_code or "COP"
+        curr = booking.currency_code or "EUR"
         reply_text = (
-            f"✈️ *Detalles de tu Reserva en AeroAgencia*\n"
+            f"✈️ *Detalles de tu Reserva Confirmada*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🎫 *Código:* {booking.code}\n"
             f"👤 *Pasajero:* {booking.first_name}\n"
@@ -234,15 +234,15 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
             f"👥 *Huéspedes:* {booking.guests_count} | Habitaciones: {booking.rooms_count}\n"
             f"💰 *Total Pagado:* {curr} {total:,.2f}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"📄 *¿Deseas descargar tu Voucher oficial en PDF?*\n"
-            f"Solo responde escribiendo la palabra *VOUCHER* y te lo enviaremos al instante por este chat."
+            f"📄 *¿Deseas descargar tu Voucher o Recibo oficial en PDF?*\n"
+            f"Solo responde escribiendo la palabra *VOUCHER* o *RECIBO* y te lo enviaremos al instante por este chat."
         )
         return reply_text, None
 
     # C) SOLICITUD DE ASESOR HUMANO
     if any(k in clean_text for k in ['asesor', 'agente', 'humano', 'persona', 'comercial']):
         return (
-            f"👨‍✈️ *Atención Personalizada AeroAgencia*\n"
+            f"👨‍✈️ *Atención Personalizada de Reservas*\n"
             f"Hemos notificado a nuestro equipo de asesores comerciales. Uno de nuestros agentes se comunicará contigo por este mismo chat en breve.\n\n"
             f"Por favor descríbenos tu inquietud o déjanos saber cómo podemos ayudarte."
         ), None
@@ -253,13 +253,12 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
 
     if ai_active and gemini_key:
         system_instruction = (
-            "Eres el Asistente Virtual Oficial con Inteligencia Artificial de 'AeroAgencia Viajes & Turismo' "
-            "(Teléfono/WhatsApp oficial: +57 324 5362112). "
-            "Tu personalidad es extremadamente amable, empática, profesional y conocedora de turismo en Colombia y el mundo. "
+            "Eres el Asistente Virtual Oficial con Inteligencia Artificial de nuestra Central Internacional de Reservas, Vuelos y Hoteles (Multi-Empresa). "
+            "Tu personalidad es extremadamente amable, empática, profesional y conocedora de turismo y hotelería internacional. "
             "Responde en español de manera concisa para WhatsApp (máximo 2 a 3 párrafos cortos), usando formato WhatsApp (*negrita* y emojis). "
-            "Ofrecemos tiquetes aéreos, reservas hoteleras, paquetes turísticos, cruceros y asistencia al viajero. "
-            "Explícale al usuario que si tiene una reserva con nosotros, puede escribir su código (ejemplo: AEROA1) para consultar detalles "
-            "o escribir la palabra VOUCHER para recibir su comprobante oficial en PDF directamente en el chat. "
+            "Atendemos reservas hoteleras, tiquetes aéreos, paquetes turísticos y vouchers de todas nuestras agencias y hoteles asociados. "
+            "Explícale al usuario que si tiene una reserva, puede escribir su código (ejemplo: AEROA1) para consultar detalles "
+            "o escribir la palabra VOUCHER o RECIBO para recibir su comprobante oficial en PDF directamente en el chat. "
             "Si el usuario pide hablar con un asesor, confirma amablemente que nuestro equipo humano se pondrá en contacto pronto."
         )
 
@@ -277,23 +276,23 @@ def process_ai_interaction(from_phone, sender_name, incoming_text, config):
     greetings = ['hola', 'hola!', 'buenos dias', 'buenas tardes', 'buenas noches', 'hello', 'hi', 'inicio']
     if any(g in clean_text for g in greetings):
         return (
-            f"¡Hola {client_name}! Bienvenido(a) a *AeroAgencia* ✈️.\n\n"
-            f"Soy tu asistente virtual con Inteligencia Artificial de Gemini. ¿En qué puedo colaborarte hoy?\n\n"
+            f"¡Hola {client_name}! Bienvenido(a) a nuestra *Central de Reservas & Viajes* ✈️.\n\n"
+            f"Soy tu asistente virtual inteligente. ¿En qué puedo colaborarte hoy?\n\n"
             f"1️⃣ Escribe el *CÓDIGO* de tu reserva para consultar detalles.\n"
-            f"2️⃣ Escribe *VOUCHER* si necesitas descargar tu comprobante oficial en PDF.\n"
-            f"3️⃣ Escribe *ASESOR* para hablar con nuestro equipo humano."
+            f"2️⃣ Escribe *VOUCHER* o *RECIBO* si necesitas descargar tus comprobantes oficiales en PDF.\n"
+            f"3️⃣ Escribe *ASESOR* para hablar con nuestro equipo de atención."
         ), None
 
     if clean_text in ['menu', 'menú', 'ayuda', 'opciones', 'help', '3']:
         return config.menu_message, None
 
     if any(k in clean_text for k in ['gracias', 'muchas gracias', 'perfecto', 'excelente', 'vale', 'listo']):
-        return f"¡Con muchísimo gusto {client_name}! En AeroAgencia estamos para servirte. ¡Que tengas un excelente viaje! ✈️🌟", None
+        return f"¡Con muchísimo gusto {client_name}! Estamos para servirte. ¡Que tengas un excelente viaje! ✈️🌟", None
 
     return (
-        f"Hola {client_name}, gracias por escribir a AeroAgencia.\n\n"
+        f"Hola {client_name}, gracias por comunicarte con nuestra Central de Reservas.\n\n"
         f"• Para consultar tu viaje, escribe tu *CÓDIGO DE RESERVA* (ej: *AEROA1*).\n"
-        f"• Para recibir tu confirmación oficial en PDF, escribe *VOUCHER*.\n"
+        f"• Para recibir tu confirmación oficial en PDF, escribe *VOUCHER* o *RECIBO*.\n"
         f"• Para comunicarte con un asesor, escribe *ASESOR*."
     ), None
 
@@ -462,11 +461,13 @@ class WhatsAppBookingReceiptPDFView(APIView):
 
 
 class WhatsAppSendVoucherManualView(APIView):
-    """Permite al asesor en el dashboard enviar el PDF de voucher a un cliente con un solo clic."""
+    """Permite a cualquier asesor o empleado enviar el PDF de Voucher o Recibo a un cliente de cualquier empresa."""
     permission_classes = [AllowAny]
 
     def post(self, request, phone):
         booking_code = request.data.get('booking_code', '').strip()
+        doc_type = request.data.get('doc_type', 'voucher').strip().lower()  # 'voucher' | 'receipt' | 'both'
+        company_name = request.data.get('company_name', '').strip()
         booking = None
 
         if booking_code:
@@ -479,37 +480,61 @@ class WhatsAppSendVoucherManualView(APIView):
             return Response({'detail': 'No se encontró una reserva asociada con ese código.'}, status=status.HTTP_404_NOT_FOUND)
 
         config = get_whatsapp_config()
-        voucher_url = f"https://globetrek.cloud/users/api/whatsapp/voucher/{booking.code}/"
-        filename = f"Voucher_{booking.code}.pdf"
-        caption = f"✈️ Voucher oficial de tu reserva {booking.code} en {booking.hotel_name}"
+        brand_label = company_name or booking.hotel_name or 'Central de Reservas'
 
-        # 1. Enviar el documento
-        sent_ok, doc_res = send_meta_whatsapp_document(
-            phone_number_id=config.phone_number_id,
-            access_token=config.access_token,
-            to_phone=phone,
-            document_url=voucher_url,
-            filename=filename,
-            caption=caption
-        )
+        docs_to_send = []
+        if doc_type in ('voucher', 'both'):
+            v_url = request.build_absolute_uri(f"/users/api/whatsapp/voucher/{booking.code}/")
+            docs_to_send.append({
+                'url': v_url,
+                'filename': f"Voucher_{booking.code}.pdf",
+                'caption': f"✈️ Voucher oficial de tu reserva {booking.code} - {brand_label}",
+                'tag': 'VOUCHER PDF ENVIADO',
+            })
+        if doc_type in ('receipt', 'recibo', 'both'):
+            r_url = request.build_absolute_uri(f"/users/api/whatsapp/receipt/{booking.code}/")
+            docs_to_send.append({
+                'url': r_url,
+                'filename': f"Recibo_{booking.code}.pdf",
+                'caption': f"🧾 Recibo de Pago oficial de tu reserva {booking.code} - {brand_label}",
+                'tag': 'RECIBO PDF ENVIADO',
+            })
 
-        # 2. Registrar en base de datos
-        doc_msg = WhatsAppMessage.objects.create(
-            sender_phone=phone,
-            sender_name=request.user.first_name or request.user.username if request.user.is_authenticated else 'Asesor AeroAgencia',
-            message_text=f"📄 [VOUCHER PDF ENVIADO]: {filename}\n{caption}",
-            direction='outbound',
-            is_auto_reply=False
-        )
+        last_msg_id = None
+        any_sent = False
+        last_detail = 'Documento registrado en el chat'
+
+        for d in docs_to_send:
+            sent_ok, doc_res = send_meta_whatsapp_document(
+                phone_number_id=config.phone_number_id,
+                access_token=config.access_token,
+                to_phone=phone,
+                document_url=d['url'],
+                filename=d['filename'],
+                caption=d['caption']
+            )
+            if sent_ok:
+                any_sent = True
+            else:
+                last_detail = str(doc_res)
+
+            doc_msg = WhatsAppMessage.objects.create(
+                sender_phone=phone,
+                sender_name=request.user.first_name or request.user.username if request.user.is_authenticated else f'Asesor {brand_label}',
+                message_text=f"📄 [{d['tag']}]: {d['filename']}\n{d['caption']}",
+                direction='outbound',
+                is_auto_reply=False
+            )
+            last_msg_id = doc_msg.id
 
         return Response({
-            'success': sent_ok,
-            'message_id': doc_msg.id,
+            'success': True,
+            'meta_sent': any_sent,
+            'message_id': last_msg_id,
             'booking_code': booking.code,
-            'filename': filename,
-            'voucher_url': voucher_url,
-            'detail': 'Voucher enviado exitosamente por WhatsApp' if sent_ok else str(doc_res)
-        }, status=status.HTTP_200_OK if sent_ok else status.HTTP_207_MULTI_STATUS)
+            'doc_type': doc_type,
+            'detail': 'Documento PDF enviado/registrado exitosamente por WhatsApp' if any_sent else f"Registrado en el chat ({last_detail})"
+        }, status=status.HTTP_200_OK)
 
 
 class WhatsAppConversationsView(APIView):

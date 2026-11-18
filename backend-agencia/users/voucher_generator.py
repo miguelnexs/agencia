@@ -125,7 +125,8 @@ def generate_voucher_pdf_bytes(booking) -> bytes:
 
     # 1. ENCABEZADO PRINCIPAL CON LOGO Y CÓDIGO
     today_str = date.today().strftime("%d/%m/%Y")
-    brand_header_element = Paragraph("<b>AEROAGENCIA</b><br/><font size=7 color='#059669'>AGENCIA DE VIAJES & TURISMO OFICIAL</font>", h1)
+    company_title = (getattr(booking, 'hotel_name', '') or "CENTRAL DE RESERVAS").upper()
+    brand_header_element = Paragraph(f"<b>{company_title[:28]}</b><br/><font size=7 color='#059669'>PLATAFORMA OFICIAL DE RESERVAS & HOSPEDAJE</font>", h1)
     try:
         if getattr(booking, 'logo_image', None) and booking.logo_image.name and os.path.exists(booking.logo_image.path):
             brand_header_element = Image(booking.logo_image.path, width=140, height=48, kind='proportional')
@@ -329,7 +330,7 @@ def generate_voucher_pdf_bytes(booking) -> bytes:
     # 7. PIE DE PÁGINA
     story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=8))
     story.append(Paragraph(
-        "<b>AeroAgencia Viajes & Turismo S.A.S.</b> • Atención 24/7 en WhatsApp: <b>+57 324 5362112</b><br/>"
+        f"<b>{booking.hotel_name or 'Central Oficial de Reservas & Viajes'}</b> • Atención 24/7 por WhatsApp Oficial<br/>"
         "Documento emitido electrónicamente como comprobante de reserva garantizada.",
         footer_text
     ))
@@ -437,7 +438,8 @@ def generate_receipt_pdf_bytes(booking) -> bytes:
 
     # 1. ENCABEZADO
     today_str = date.today().strftime("%d/%m/%Y")
-    brand_header_element = Paragraph("<b>AEROAGENCIA</b><br/><font size=8 color='#0d9488'>COMPROBANTE OFICIAL DE PAGO</font>", h1)
+    company_title = (getattr(booking, 'hotel_name', '') or "CENTRAL DE RESERVAS").upper()
+    brand_header_element = Paragraph(f"<b>{company_title[:28]}</b><br/><font size=8 color='#0d9488'>COMPROBANTE OFICIAL DE PAGO</font>", h1)
     try:
         if getattr(booking, 'logo_image', None) and booking.logo_image.name and os.path.exists(booking.logo_image.path):
             brand_header_element = Image(booking.logo_image.path, width=150, height=48, kind='proportional')

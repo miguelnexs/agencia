@@ -690,6 +690,12 @@ const UsersManager = ({ token, apiBase, role, permissions }: any) => {
                             >
                               Borrar: {u.can_delete_bookings ? 'SÍ' : 'NO'}
                             </button>
+                            <span
+                              className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500 text-white border border-emerald-500"
+                              title="Funciones de WhatsApp Cloud, Vouchers y Recibos habilitadas para el integrante"
+                            >
+                              💬 WhatsApp: SÍ
+                            </span>
                           </div>
                         )}
                       </div>

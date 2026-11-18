@@ -533,6 +533,23 @@ export default function UsersScreen() {
                         </TouchableOpacity>
                       );
                     })}
+                    <View
+                      style={[
+                        styles.permChip,
+                        {
+                          backgroundColor: '#10B981',
+                          borderColor: '#10B981',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                        },
+                      ]}
+                    >
+                      <FontAwesome5 name="whatsapp" size={11} color="#FFFFFF" />
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>
+                        WhatsApp: SÍ
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
