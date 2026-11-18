@@ -1,6 +1,6 @@
-appId: com.globetrek.app
-productName: GlobeTrek
-copyright: Copyright © 2026 GlobeTrek
+appId: com.vueloseguro.app
+productName: VueloSeguro
+copyright: Copyright © 2026 VueloSeguro
 directories:
   output: dist-electron
   buildResources: resources
@@ -34,7 +34,7 @@ win:
         - x64
   requestedExecutionLevel: asInvoker
   artifactName: "${productName}-Installer-${version}.${ext}"
-  publisherName: GlobeTrek
+  publisherName: VueloSeguro
   verifyUpdateCodeSignature: false
   sign: false
   signDlls: false
@@ -46,7 +46,7 @@ nsis:
   allowElevation: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: GlobeTrek
+  shortcutName: VueloSeguro
   deleteAppDataOnUninstall: false
   installerLanguages:
     - es-ES
@@ -68,8 +68,8 @@ linux:
   category: Office
   artifactName: "${productName}-${version}.${ext}"
   desktop:
-    Name: GlobeTrek
-    Comment: Sistema de gestión GlobeTrek
+    Name: VueloSeguro
+    Comment: Sistema de gestión VueloSeguro
     Keywords: gestion;viajes;empleados
     Categories: Office;Business;
     StartupNotify: true

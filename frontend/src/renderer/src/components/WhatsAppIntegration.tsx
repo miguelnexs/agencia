@@ -518,7 +518,7 @@ export const WhatsAppIntegration: React.FC<WhatsAppIntegrationProps> = ({ token,
                           >
                             {m.is_auto_reply && (
                               <div className="text-[9px] font-bold uppercase tracking-wider text-teal-200 mb-1 flex items-center gap-1">
-                                <span>🤖 AeroAgencia IA</span>
+                                <span>🤖 VueloSeguro IA</span>
                               </div>
                             )}
                             {m.text.includes('[DOCUMENTO ADJUNTO') || m.text.includes('[VOUCHER PDF ENVIADO') || m.text.includes('[RECIBO PDF ENVIADO') ? (

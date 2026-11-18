@@ -169,7 +169,7 @@ export default function DashboardScreen() {
             </LinearGradient>
             <View>
               <Text style={[styles.brandTitle, { color: colors.text }]}>
-                AERO<Text style={{ color: colors.primary }}>AGENCIA</Text>
+                VUELO<Text style={{ color: colors.primary }}>SEGURO</Text>
               </Text>
               <Text style={[styles.brandSub, { color: colors.textSecondary }]}>
                 {username || 'Operador'} · {(role || 'staff').toUpperCase()}

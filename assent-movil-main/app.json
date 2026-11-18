@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "AeroAgencia",
-    "slug": "aeroagencia",
-    "scheme": "aeroagencia",
+    "name": "VueloSeguro",
+    "slug": "vueloseguro",
+    "scheme": "vueloseguro",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.miguelnexs.aeroagencia",
+      "bundleIdentifier": "com.miguelnexs.vueloseguro",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -30,7 +30,7 @@
       "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.miguelnexs.aeroagencia"
+      "package": "com.miguelnexs.vueloseguro"
     },
     "web": {
       "favicon": "./assets/favicon.png"
